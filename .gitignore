@@ -1,0 +1,115 @@
+# =============================================================================
+# 4w-cli — Comprehensive Security & Build .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Secrets, Credentials, Tokens & Local 4words State (CRITICAL)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.crt
+*.cer
+*.der
+*secret*
+*secrets*
+*credentials*
+*token*
+.netrc
+.npmrc
+.yarnrc
+
+# Local 4words CLI persistent config and vault files (never commit user history)
+config.json
+history.json
+.4words/
+4words-cli/
+
+# -----------------------------------------------------------------------------
+# 2. Compiled Binaries, Runtime Archives & Installer Work Directories
+# -----------------------------------------------------------------------------
+/4w
+/4w.bin
+/4w.exe
+/bun
+/bun.exe
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.bz2
+*.xz
+*.7z
+.work.*
+.lock
+
+# -----------------------------------------------------------------------------
+# 3. Node.js / Bun / Package Manager Artifacts
+# -----------------------------------------------------------------------------
+node_modules/
+.bun/
+bun.lockb
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npm/
+.pnp.*
+dist/
+build/
+out/
+
+# -----------------------------------------------------------------------------
+# 4. Logs, Coverage, Test Scratch & Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+.nyc_output/
+*.lcov
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+tmp/
+temp/
+.tmp/
+.temp/
+.cache/
+*.tmp
+*.bak
+*.orig
+
+# -----------------------------------------------------------------------------
+# 5. Operating System & Editor / IDE Metadata
+# -----------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*.swn
+*~

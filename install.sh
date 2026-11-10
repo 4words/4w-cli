@@ -3,10 +3,10 @@
 fourwords_install() (
     set -eu
     umask 077
-    version='0.3.0'
-    source_sha='e07944cf62a9dc6740a208b973a4e71b05a74664ea1210657616623cba5e4042'
+    version='0.3.1'
+    source_sha='9e3472cccfdeef0a00d59bae8ec2573cc76c70c09011930e5fe650f2b033112b'
     bun_version='1.4.4'
-    release='https://raw.githubusercontent.com/tallesdantas/4w-cli/main'
+    release='https://raw.githubusercontent.com/4words/4w-cli/main'
     action=install
     local_source=''
     local_bun=''
@@ -108,13 +108,13 @@ fourwords_install() (
     step '1/7' 'Detecting platform and checking prerequisites.'
     os_name=$(uname -s)
     [ "$os_name" = Linux ] || [ "$os_name" = Darwin ] || fail 'Use this installer on Linux, macOS, or Termux.'
-    command -v unzip >/dev/null || fail "Missing required command: unzip. See https://github.com/tallesdantas/4w-cli."
+    command -v unzip >/dev/null || fail "Missing required command: unzip. See https://github.com/4words/4w-cli."
     if command -v sha256sum >/dev/null; then
         sha_cmd='sha256sum'
     elif command -v shasum >/dev/null; then
         sha_cmd='shasum -a 256'
     else
-        fail "Missing required command: sha256sum. See https://github.com/tallesdantas/4w-cli."
+        fail "Missing required command: sha256sum. See https://github.com/4words/4w-cli."
     fi
     if [ -z "$local_source" ] || [ -z "$local_bun" ]; then
         command -v curl >/dev/null || fail 'Install curl to download release files.'

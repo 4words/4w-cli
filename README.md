@@ -16,31 +16,31 @@ Official CLI and interactive TUI client for [FourWords](https://4words.aletheia.
 **Linux & macOS** · Ubuntu, Debian, Fedora, Arch, glibc distros, and macOS (`x64` or Apple Silicon `arm64`). Requires `curl`, `unzip`, and `sha256sum` (or `shasum` on macOS).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **Alpine Linux** · On minimal installations, install the required packages with `apk` first.
 
 ```sh
-apk add --no-cache curl unzip libstdc++ libgcc && curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+apk add --no-cache curl unzip libstdc++ libgcc && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **NixOS** · Use the standard Linux command. If `curl` or `unzip` are not in your profile, provide them for the install session.
 
 ```sh
-nix --extra-experimental-features 'nix-command flakes' shell nixpkgs#curl nixpkgs#unzip -c sh -c 'curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh'
+nix --extra-experimental-features 'nix-command flakes' shell nixpkgs#curl nixpkgs#unzip -c sh -c 'curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh'
 ```
 
 **Termux (Android)** · Use 64-bit Termux and Android on internal app storage.
 
 ```sh
-pkg install -y curl unzip && curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+pkg install -y curl unzip && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **Windows PowerShell** · Windows 10 1809 or newer on `x64` or `ARM64`. Installs into the current user profile.
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1)))
 ```
 
 The installer executes seven verified steps: detects the platform, downloads the versioned TypeScript bundle and the official Bun runtime (`1.4.4`), verifies the `SHA-256` checksums of both artifacts, compiles a standalone executable, runs `--self-test`, and activates the binary in your user profile. If the repository is private during testing, export `GITHUB_TOKEN` before running the installer.
@@ -136,13 +136,13 @@ Run `4w` or `4w tui` in an interactive terminal. The panel adapts to your termin
 Linux, macOS, and Termux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh -s -- --uninstall
 ```
 
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.ps1))) -Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1))) -Uninstall
 ```
 
 ## Development & Distribution
@@ -157,7 +157,7 @@ sh -n install.sh
 sh test_scripts/run_all_verifications.sh
 ```
 
-To install from a local checkout, run `sh install.sh --source releases/0.3.0/cli.ts`. In PowerShell, run `& .\install.ps1 -Source .\releases\0.3.0\cli.ts`.
+To install from a local checkout, run `sh install.sh --source releases/0.3.1/cli.ts`. In PowerShell, run `& .\install.ps1 -Source .\releases\0.3.1\cli.ts`.
 
 | Environment | Runtime Strategy |
 | --- | --- |

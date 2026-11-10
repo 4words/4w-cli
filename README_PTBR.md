@@ -16,31 +16,31 @@ Cliente oficial de linha de comando (CLI) e painel interativo (TUI) do [FourWord
 **Linux & macOS** · Ubuntu, Debian, Fedora, Arch, distros glibc e macOS (`x64` ou Apple Silicon `arm64`). Requer `curl`, `unzip` e `sha256sum` (ou `shasum` no macOS).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **Alpine** · Em instalações mínimas, execute a instalação das dependências com permissão para usar `apk`.
 
 ```sh
-apk add --no-cache curl unzip libstdc++ libgcc && curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+apk add --no-cache curl unzip libstdc++ libgcc && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **NixOS** · Use a linha do Linux. Se `curl` ou `unzip` estiverem ausentes, disponibilize-os para a sessão de instalação.
 
 ```sh
-nix --extra-experimental-features 'nix-command flakes' shell nixpkgs#curl nixpkgs#unzip -c sh -c 'curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh'
+nix --extra-experimental-features 'nix-command flakes' shell nixpkgs#curl nixpkgs#unzip -c sh -c 'curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh'
 ```
 
 **Termux** · Use Termux e Android de 64 bits, no armazenamento interno do app.
 
 ```sh
-pkg install -y curl unzip && curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh
+pkg install -y curl unzip && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
 **Windows PowerShell** · Windows 10 1809 ou posterior em x64, ou Windows em ARM64. A instalação usa o perfil atual.
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1)))
 ```
 
 O instalador executa sete etapas: detecta a plataforma, baixa a fonte versionada e o Bun oficial (`1.4.4`), verifica o `SHA-256` dos dois artefatos, compila o executável único, roda um autoteste (`--self-test`) e ativa o binário no perfil do usuário. Se o repositório estiver privado durante testes, exporte `GITHUB_TOKEN` antes de executar o instalador.
@@ -136,13 +136,13 @@ Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largur
 Linux, macOS e Termux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh -s -- --uninstall
 ```
 
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/tallesdantas/4w-cli/main/install.ps1))) -Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1))) -Uninstall
 ```
 
 ## Desenvolvimento e distribuição
@@ -157,7 +157,7 @@ sh -n install.sh
 sh test_scripts/run_all_verifications.sh
 ```
 
-Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.0/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.0\cli.ts`.
+Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.1/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.1\cli.ts`.
 
 | Ambiente | Carregamento |
 | --- | --- |

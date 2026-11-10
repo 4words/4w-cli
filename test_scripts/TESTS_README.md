@@ -7,7 +7,7 @@ This document describes the verification scripts and test suites of the `4w-cli`
 ## 1. Scripts in `test_scripts/`
 
 ### [`run_all_verifications.sh`](./run_all_verifications.sh)
-- **Purpose**: Run end-to-end hermetic validation of the `4w-cli` (`v0.3.0`) repository.
+- **Purpose**: Run end-to-end hermetic validation of the `4w-cli` (`v0.3.1`) repository.
 - **Executed Steps**:
   1. Deterministic generation of the release bundle and `SHA-256` hashes (`bun scripts/release.mjs`).
   2. POSIX syntax validation of the installer (`sh -n install.sh`).

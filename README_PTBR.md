@@ -130,8 +130,21 @@ Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largur
 | `FOURWORDS_ADMIN_KEY` | Chave `fwadm_...` padrão para `4w room moderate`. |
 | `FOURWORDS_TOKEN` | Token Bearer opcional para autorização HTTP. |
 | `FOURWORDS_NO_HISTORY` | Defina como `1` para desativar o registro automático no cofre local de 24h. |
+| `FOURWORDS_NO_UPDATE_CHECK` | Defina como `1` para desativar a verificação periódica de atualizações. |
 
 ## Atualizar ou remover
+
+### Atualização direta
+
+Execute `4w update` para verificar atualizações e atualizar o `4w` diretamente:
+
+```sh
+4w update --check   # Consulta se há versão mais recente sem alterar arquivos
+4w update           # Baixa e aplica a atualização
+4w update --force   # Força a reinstalação mesmo se já estiver na versão mais recente
+```
+
+### Desinstalação
 
 Linux, macOS e Termux:
 
@@ -157,7 +170,7 @@ sh -n install.sh
 sh test_scripts/run_all_verifications.sh
 ```
 
-Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.1/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.1\cli.ts`.
+Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.2/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.2\cli.ts`.
 
 | Ambiente | Carregamento |
 | --- | --- |

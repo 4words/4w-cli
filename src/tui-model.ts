@@ -114,6 +114,12 @@ type Copy = {
   langDesc: string;
   langFieldLabel: string;
   langFieldHint: string;
+  updateTitle: string;
+  updateDesc: string;
+  updateCheckLabel: string;
+  updateCheckHint: string;
+  updateForceLabel: string;
+  updateForceHint: string;
 };
 
 const copyByLang: Record<Lang, Copy> = {
@@ -188,7 +194,7 @@ const copyByLang: Record<Lang, Copy> = {
     roomPartDesc: "View currently active human and LLM participants in the room.",
     roomNickTitle: "Roll nickname",
     roomNickDesc: "Roll a new random nickname bound to your current IP or session in the room.",
-    roomRegLlmTitle: "Register LLM agent",
+    roomRegLlmTitle: "Register LLM Agent",
     roomRegLlmDesc: "Authenticate with the room llm_key to display the golden LLM agent badge.",
     llmKeyReqLabel: "LLM Key",
     roomModTitle: "Moderate room",
@@ -203,6 +209,12 @@ const copyByLang: Record<Lang, Copy> = {
     langDesc: "Change and save the default interface language on this machine (or press L in the main menu).",
     langFieldLabel: "Language code (en, ptbr, es)",
     langFieldHint: "en = English (default), ptbr = Português, es = Español",
+    updateTitle: "Update 4w",
+    updateDesc: "Check for updates and reinstall the latest official release.",
+    updateCheckLabel: "Only check (--check)",
+    updateCheckHint: "Check if an update is available without modifying files",
+    updateForceLabel: "Force reinstall (--force)",
+    updateForceHint: "Reinstall even if the version is already up to date",
   },
   ptbr: {
     secPublish: "PUBLICAR",
@@ -290,6 +302,12 @@ const copyByLang: Record<Lang, Copy> = {
     langDesc: "Altere e salve o idioma padrão da interface nesta máquina (ou pressione L na tela inicial).",
     langFieldLabel: "Código do idioma (en, ptbr, es)",
     langFieldHint: "en = English (padrão), ptbr = Português, es = Español",
+    updateTitle: "Atualizar 4w",
+    updateDesc: "Verifica novas versões e atualiza o 4w usando o instalador oficial.",
+    updateCheckLabel: "Apenas verificar (--check)",
+    updateCheckHint: "Consulta se há versão mais recente sem alterar arquivos",
+    updateForceLabel: "Forçar reinstalação (--force)",
+    updateForceHint: "Reinstala mesmo se já estiver na versão mais recente",
   },
   es: {
     secPublish: "PUBLICAR",
@@ -377,6 +395,12 @@ const copyByLang: Record<Lang, Copy> = {
     langDesc: "Cambie y guarde el idioma predeterminado en esta máquina (o presione L en el menú principal).",
     langFieldLabel: "Código de idioma (en, ptbr, es)",
     langFieldHint: "en = English (por defecto), ptbr = Português, es = Español",
+    updateTitle: "Actualizar 4w",
+    updateDesc: "Verifica nuevas versiones y actualiza 4w usando el instalador oficial.",
+    updateCheckLabel: "Solo verificar (--check)",
+    updateCheckHint: "Consulta si hay una versión más reciente sin modificar archivos",
+    updateForceLabel: "Forzar reinstalación (--force)",
+    updateForceHint: "Reinstala incluso si ya está en la versión más reciente",
   },
 };
 
@@ -601,6 +625,22 @@ export function actionsFor(lang = resolveLang()): Action[] {
       description: c.langDesc,
       fields: [{ id: "lang", label: c.langFieldLabel, hint: c.langFieldHint, initial: lang, required: true }],
       job: (v) => ({ args: ["lang", v.lang.trim()] }),
+    },
+    {
+      id: "update", section: c.secTools, title: c.updateTitle,
+      description: c.updateDesc,
+      fields: [
+        { id: "check", label: c.updateCheckLabel, mode: "toggle", initial: "on", hint: c.updateCheckHint },
+        { id: "force", label: c.updateForceLabel, mode: "toggle", hint: c.updateForceHint },
+      ],
+      write: true,
+      job: (v) => ({
+        args: [
+          "update",
+          ...(v.check === "on" ? ["--check"] : []),
+          ...(v.force === "on" ? ["--force"] : []),
+        ],
+      }),
     },
   ];
 }

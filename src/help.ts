@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export const VERSION = "0.3.1";
+export const VERSION = "0.3.2";
 export const SITE = "https://4words.aletheia.land";
 export const REPO = "https://github.com/4words/4w-cli";
 
@@ -27,33 +27,48 @@ export function normalizeLang(raw: string | undefined): Lang | undefined {
   return undefined;
 }
 
-export function readSavedLang(): Lang | undefined {
-  const file = configPath();
-  if (!file) return undefined;
-  try {
-    const data = JSON.parse(readFileSync(file, "utf8")) as { lang?: string };
-    return normalizeLang(data?.lang);
-  } catch {
-    return undefined;
+export function compareSemver(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
   }
+  return 0;
 }
 
-export function saveLang(lang: Lang): string | undefined {
+/** Reads config.json as a plain object. Returns {} when the file is missing or invalid. */
+export function readConfig(): Record<string, unknown> {
   const file = configPath();
-  if (!file) return undefined;
-  let existing: Record<string, unknown> = {};
+  if (!file) return {};
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8"));
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      existing = parsed as Record<string, unknown>;
-    }
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
-    // Start fresh config object.
+    // Missing or damaged file: start with an empty config object.
   }
-  const updated = { ...existing, lang, updated_at: Date.now() };
+  return {};
+}
+
+/** Merges `patch` into config.json and keeps all other keys. Returns the file path. */
+export function updateConfig(patch: Record<string, unknown>): string | undefined {
+  const file = configPath();
+  if (!file) return undefined;
+  const updated = { ...readConfig(), ...patch };
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, JSON.stringify(updated, null, 2) + "\n", { mode: 0o600 });
   return file;
+}
+
+export function readSavedLang(): Lang | undefined {
+  const lang = readConfig().lang;
+  return typeof lang === "string" ? normalizeLang(lang) : undefined;
+}
+
+export function saveLang(lang: Lang): string | undefined {
+  return updateConfig({ lang, updated_at: Date.now() });
 }
 
 export function resolveLang(explicit?: string): Lang {
@@ -90,6 +105,12 @@ const topicsPt = {
     usage: "4w doctor",
     details: "Conecta ao MCP, negocia a sessão e conta as ferramentas. Exibe JSON com ok, version e tools. A operação não publica conteúdo.",
     examples: ["4w doctor"],
+  },
+  update: {
+    label: "Atualizar o 4w",
+    usage: "4w update [--check] [--force]",
+    details: "Compara a versão instalada com o instalador publicado no repositório. Se houver versão nova, baixa e executa o instalador oficial, que verifica o SHA-256, compila, faz o autoteste e troca o executável. Se ocorrer uma falha, a versão anterior fica instalada. --check só consulta e não altera nada. --force reinstala a versão publicada, mesmo que seja igual ou que este 4w não seja a cópia gerenciada pelo instalador. Uma vez a cada 24 horas, o 4w avisa no stderr quando existe versão nova. Para desativar o aviso, defina FOURWORDS_NO_UPDATE_CHECK=1.",
+    examples: ["4w update --check", "4w update", "4w update --force"],
   },
   text: {
     label: "Publicar texto",
@@ -240,6 +261,12 @@ const topicsEn: Record<Topic, TopicEntry> = {
     details: "Connects to the MCP endpoint, negotiates protocol and counts available tools. Outputs JSON with ok, version and tools.",
     examples: ["4w doctor"],
   },
+  update: {
+    label: "Update 4w",
+    usage: "4w update [--check] [--force]",
+    details: "Compares the installed version with the installer published in the repository. If a newer version exists, downloads and runs the official installer, which verifies the SHA-256, compiles, runs the self-test and replaces the executable. If a step fails, the previous version stays installed. --check only reports and changes nothing. --force reinstalls the published version, also when it is the same version or when this 4w is not the copy managed by the installer. Once every 24 hours, 4w writes a notice to stderr when a newer version exists. Set FOURWORDS_NO_UPDATE_CHECK=1 to disable the notice.",
+    examples: ["4w update --check", "4w update", "4w update --force"],
+  },
   text: {
     label: "Publish text",
     usage: "4w text TEXT | 4w text --file FILE | 4w text - [--burn] [--encrypt]",
@@ -386,6 +413,12 @@ const topicsEs: Record<Topic, TopicEntry> = {
     usage: "4w doctor",
     details: "Conecta al MCP, negocia la sesión y cuenta las herramientas disponibles.",
     examples: ["4w doctor"],
+  },
+  update: {
+    label: "Actualizar 4w",
+    usage: "4w update [--check] [--force]",
+    details: "Compara la versión instalada con el instalador publicado en el repositorio. Si hay una versión nueva, descarga y ejecuta el instalador oficial, que verifica el SHA-256, compila, ejecuta la autoprueba y reemplaza el ejecutable. Si un paso falla, la versión anterior queda instalada. --check solo consulta y no cambia nada. --force reinstala la versión publicada, también si es la misma versión o si este 4w no es la copia gestionada por el instalador. Una vez cada 24 horas, 4w avisa en stderr cuando hay una versión nueva. Defina FOURWORDS_NO_UPDATE_CHECK=1 para desactivar el aviso.",
+    examples: ["4w update --check", "4w update", "4w update --force"],
   },
   text: {
     label: "Publicar texto",
@@ -552,6 +585,7 @@ USAGE
   4w                            Open the interactive panel
   4w COMMAND [ARGS]             Execute a command and write JSON to stdout
   4w lang [en|ptbr|es]          Show or change and save the interface language
+  4w update [--check] [--force] Check for updates and update 4w
   4w help [COMMAND ...]         Show help for a command
   4w --version                  Show installed version
 
@@ -603,6 +637,7 @@ USO
   4w                            Abre el panel interactivo
   4w COMANDO [ARGUMENTOS]       Ejecuta un comando y escribe JSON en stdout
   4w lang [en|ptbr|es]          Muestra o cambia y guarda el idioma en esta máquina
+  4w update [--check] [--force] Consulta actualizaciones y actualiza 4w
   4w help [COMANDO ...]         Muestra la ayuda de un comando
   4w --version                  Muestra la versión instalada
 
@@ -653,6 +688,7 @@ USO
   4w                            Abre o painel interativo
   4w COMANDO [ARGUMENTOS]       Executa um comando e escreve o resultado em JSON
   4w lang [en|ptbr|es]          Mostra ou altera e salva o idioma nesta máquina
+  4w update [--check] [--force] Verifica atualizações e atualiza o 4w
   4w help [COMANDO ...]         Abre a ajuda de um comando
   4w --version                  Mostra a versão instalada
 

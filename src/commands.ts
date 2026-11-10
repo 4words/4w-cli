@@ -1,8 +1,10 @@
-import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { configPath, normalizeLang, readSavedLang, resolveLang, saveLang, SITE, VERSION } from "./help";
+import { compareSemver, configPath, normalizeLang, readSavedLang, resolveLang, saveLang, SITE, VERSION } from "./help";
 
 const MAX_FILE = 24 * 1024 * 1024;
 const MAX_STREAM_FILE = 1024 * 1024 * 1024;
@@ -656,6 +658,138 @@ async function fetchFourWordsLink(
   });
 }
 
+export async function fetchLatestVersion(signal?: AbortSignal): Promise<{ version: string; url: string }> {
+  const updateUrl = process.env.FOURWORDS_UPDATE_URL ||
+    "https://raw.githubusercontent.com/4words/4w-cli/main/package.json";
+  const res = await fetch(updateUrl, { signal });
+  if (!res.ok) {
+    throw new Error(tr(
+      `Failed to check for updates (HTTP ${res.status}).`,
+      `Falha ao verificar atualizações (HTTP ${res.status}).`,
+      `Error al verificar actualizaciones (HTTP ${res.status}).`,
+    ));
+  }
+  const data = (await res.json()) as { version?: string };
+  if (!data?.version || typeof data.version !== "string") {
+    throw new Error(tr(
+      "Invalid release metadata received from repository.",
+      "Metadados de release inválidos recebidos do repositório.",
+      "Metadatos de versión no válidos recibidos del repositorio.",
+    ));
+  }
+  return { version: data.version, url: updateUrl };
+}
+
+export async function handleUpdate(
+  values: { check?: boolean; force?: boolean },
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const { version: latestVersion } = await fetchLatestVersion(signal);
+  const isNewer = compareSemver(latestVersion, VERSION) > 0;
+
+  if (values.check) {
+    return {
+      ok: true,
+      current_version: VERSION,
+      latest_version: latestVersion,
+      update_available: isNewer,
+      command: isNewer ? "4w update" : undefined,
+      message: isNewer
+        ? tr(
+            `A new version of 4w is available (${VERSION} -> ${latestVersion}). Run '4w update' to install.`,
+            `Uma nova versão do 4w está disponível (${VERSION} -> ${latestVersion}). Execute '4w update' para instalar.`,
+            `Hay una nueva versión de 4w disponible (${VERSION} -> ${latestVersion}). Ejecute '4w update' para instalar.`,
+          )
+        : tr(
+            `4w is already at the latest version (${VERSION}).`,
+            `O 4w já está na versão mais recente (${VERSION}).`,
+            `4w ya está en la versión más reciente (${VERSION}).`,
+          ),
+    };
+  }
+
+  if (!isNewer && !values.force) {
+    return {
+      ok: true,
+      current_version: VERSION,
+      latest_version: latestVersion,
+      update_available: false,
+      message: tr(
+        `4w is already at the latest version (${VERSION}). Use --force to reinstall.`,
+        `O 4w já está na versão mais recente (${VERSION}). Use --force para reinstalar.`,
+        `4w ya está en la versión más reciente (${VERSION}). Use --force para reinstalar.`,
+      ),
+    };
+  }
+
+  const isWindows = process.platform === "win32";
+  const defaultScriptUrl = isWindows
+    ? "https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1"
+    : "https://raw.githubusercontent.com/4words/4w-cli/main/install.sh";
+  const scriptUrl = process.env.FOURWORDS_INSTALLER_URL || defaultScriptUrl;
+
+  let scriptPath = process.env.FOURWORDS_INSTALLER_SCRIPT;
+  let tempDirToClean: string | undefined;
+
+  if (!scriptPath) {
+    const res = await fetch(scriptUrl, { signal });
+    if (!res.ok) {
+      throw new Error(tr(
+        `Failed to download installer from ${scriptUrl} (HTTP ${res.status}).`,
+        `Falha ao baixar o instalador de ${scriptUrl} (HTTP ${res.status}).`,
+        `Error al descargar el instalador desde ${scriptUrl} (HTTP ${res.status}).`,
+      ));
+    }
+    const scriptContent = await res.text();
+    const tmpBase = await mkdtemp(join(tmpdir(), "4w-update-"));
+    tempDirToClean = tmpBase;
+    scriptPath = join(tmpBase, isWindows ? "install.ps1" : "install.sh");
+    await writeFile(scriptPath, scriptContent, { mode: 0o700 });
+  }
+
+  try {
+    let result: { status: number | null; stdout: string; stderr: string };
+    if (isWindows) {
+      const proc = spawnSync("powershell.exe", ["-ExecutionPolicy", "Bypass", "-File", scriptPath], {
+        encoding: "utf8",
+        env: { ...process.env },
+      });
+      result = { status: proc.status, stdout: proc.stdout || "", stderr: proc.stderr || "" };
+    } else {
+      const proc = spawnSync("sh", [scriptPath], {
+        encoding: "utf8",
+        env: { ...process.env },
+      });
+      result = { status: proc.status, stdout: proc.stdout || "", stderr: proc.stderr || "" };
+    }
+
+    if (result.status !== 0) {
+      const errMsg = result.stderr.trim() || result.stdout.trim() || `Installer exited with code ${result.status}`;
+      throw new Error(tr(
+        `Update failed: ${errMsg}`,
+        `Atualização falhou: ${errMsg}`,
+        `La actualización falló: ${errMsg}`,
+      ));
+    }
+
+    return {
+      ok: true,
+      previous_version: VERSION,
+      updated_version: latestVersion,
+      message: tr(
+        `Successfully updated 4w from ${VERSION} to ${latestVersion}.`,
+        `4w atualizado com sucesso de ${VERSION} para ${latestVersion}.`,
+        `4w actualizado con éxito de ${VERSION} a ${latestVersion}.`,
+      ),
+      output: result.stdout.trim(),
+    };
+  } finally {
+    if (tempDirToClean) {
+      await rm(tempDirToClean, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
 export async function execute(args: string[], signal?: AbortSignal, input?: string): Promise<unknown> {
   const [command, ...rest] = args;
   let invoke: (mcp: FourWords) => Promise<unknown>;
@@ -666,6 +800,18 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
     exact(rest, 0, "doctor");
     forceInitialize = true;
     invoke = async (mcp) => ({ ok: true, version: VERSION, tools: (await mcp.list()).length });
+  } else if (command === "update") {
+    const { values, positionals } = parseArgs({
+      args: rest,
+      allowPositionals: true,
+      options: {
+        check: { type: "boolean" },
+        force: { type: "boolean" },
+      },
+    });
+    exact(positionals, 0, "update [--check] [--force]");
+    skipMcp = true;
+    invoke = () => handleUpdate(values, signal);
   } else if (command === "lang") {
     if (rest.length > 1) throw new Error(`${tr("Usage", "Uso", "Uso")}: 4w lang [en|ptbr|es]`);
     skipMcp = true;

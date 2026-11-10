@@ -3,8 +3,8 @@
 fourwords_install() (
     set -eu
     umask 077
-    version='0.3.1'
-    source_sha='9e3472cccfdeef0a00d59bae8ec2573cc76c70c09011930e5fe650f2b033112b'
+    version='0.3.2'
+    source_sha='51c713f5b6de4ba3e570ca5a37225deee7d3bcefcc583ebb5f6a1dfeb0546a1b'
     bun_version='1.4.4'
     release='https://raw.githubusercontent.com/4words/4w-cli/main'
     action=install

@@ -1,6 +1,6 @@
 {
   "name": "4w-cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "FourWords CLI & TUI client for ephemeral 4-word sharing, real-time collaborative rooms, and MCP automation.",
   "type": "module",
   "license": "MIT",
@@ -9,10 +9,10 @@
     "url": "https://github.com/4words/4w-cli.git"
   },
   "bin": {
-    "4w": "./releases/0.3.1/cli.ts"
+    "4w": "./releases/0.3.2/cli.ts"
   },
   "files": [
-    "releases/0.3.1/cli.ts",
+    "releases/0.3.2/cli.ts",
     "README.md",
     "README_PTBR.md"
   ],

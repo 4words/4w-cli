@@ -1,4 +1,5 @@
 import { textSafe } from "./tui-model";
+import type { Key } from "./tui-term";
 
 export const segmenter = new Intl.Segmenter("pt-BR", { granularity: "grapheme" });
 
@@ -119,4 +120,42 @@ export function fieldLine(before: string, after: string, size: number) {
   const current = segmenter.segment(after)[Symbol.iterator]().next().value?.segment ?? " ";
   const cursor = width(current) <= available ? current : " ";
   return left + paint(cursor, "cursor") + clip(after.slice(current.length), available - width(cursor));
+}
+
+export function lastLineStart(value: string, cursor: number) {
+  return cursor <= 0 ? 0 : value.lastIndexOf("\n", cursor - 1) + 1;
+}
+
+export function nextLineEnd(value: string, cursor: number) {
+  const end = value.indexOf("\n", cursor);
+  return end < 0 ? value.length : end;
+}
+
+export function editField(value: string, cursor: number, key: Key, inserted = ""): [string, number] {
+  if (inserted) return [value.slice(0, cursor) + inserted + value.slice(cursor), cursor + inserted.length];
+  const start = lastLineStart(value, cursor);
+  const end = nextLineEnd(value, cursor);
+  const segments = segmenter.segment(value);
+  const left = cursor > 0 ? segments.containing(cursor - 1)?.index ?? cursor - 1 : 0;
+  const right = segments.containing(cursor)?.segment.length ?? 0;
+  switch (key.name) {
+    case "left": return [value, left];
+    case "right": return [value, cursor + right];
+    case "home": return [value, start];
+    case "end": return [value, end];
+    case "up": {
+      if (!start) return [value, cursor];
+      const previous = lastLineStart(value, start - 1);
+      const next = Math.min(previous + cursor - start, start - 1);
+      return [value, segments.containing(next)?.index ?? next];
+    }
+    case "down": {
+      if (end === value.length) return [value, cursor];
+      const next = Math.min(end + 1 + cursor - start, nextLineEnd(value, end + 1));
+      return [value, segments.containing(next)?.index ?? next];
+    }
+    case "backspace": return [value.slice(0, left) + value.slice(cursor), left];
+    case "delete": return [value.slice(0, cursor) + value.slice(cursor + right), cursor];
+    default: return [value, cursor];
+  }
 }

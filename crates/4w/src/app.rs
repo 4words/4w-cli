@@ -85,8 +85,10 @@ pub async fn run(raw_args: Vec<String>) -> Result<()> {
         println!("{}", help::help(None, lang::resolve())?);
         return Ok(());
     }
-    // Re-attach nothing: `execute` re-reads --notify from the raw args, so pass the original list.
-    match execute(&langed_without_lang(&args, &langed), &Ctx { input: None }).await? {
+    if args.len() >= 2 && args[0] == "room" && args[1] == "watch" {
+        return crate::watch::run(&args[2..]).await;
+    }
+    match execute(&args, &Ctx { input: None }).await? {
         Output::Json(value) => {
             let mut text = serde_json::to_string_pretty(&value)?;
             text.push('\n');
@@ -112,7 +114,3 @@ pub async fn run(raw_args: Vec<String>) -> Result<()> {
     }
 }
 
-/// `args` already had `--notify` removed; the notify key lives in the process-wide default.
-fn langed_without_lang(args: &[String], _langed: &[String]) -> Vec<String> {
-    args.to_vec()
-}

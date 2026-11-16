@@ -250,8 +250,10 @@ impl Mcp {
         Ok(tools)
     }
 
-    /// Invokes a tool and unwraps `structuredContent` / JSON text, raising on rejection or conflict.
-    pub async fn call(&self, name: &str, mut args: Value) -> Result<Value> {
+    /// Invokes a tool and returns its payload (`structuredContent` or parsed JSON text).
+    /// Only transport/protocol failures and `isError` are errors: `ok:false` and `conflict`
+    /// stay in the returned value (see [`call`](Self::call) and [`call_allow_conflict`](Self::call_allow_conflict)).
+    pub async fn call_raw(&self, name: &str, mut args: Value) -> Result<Value> {
         let stateless = self.can_use_stateless().await;
         if let (Some(key), Value::Object(map)) = (&self.inner.notify_key, &mut args) {
             map.entry("notify_key").or_insert_with(|| Value::String(key.clone()));
@@ -262,7 +264,11 @@ impl Mcp {
         }
         let content = result.get("content").and_then(Value::as_array).cloned().unwrap_or_default();
         if result.get("isError").and_then(Value::as_bool) == Some(true) {
-            let message = content.iter().find(|c| c.get("type").and_then(Value::as_str) == Some("text")).and_then(|c| c.get("text")).and_then(Value::as_str);
+            let message = content
+                .iter()
+                .find(|c| c.get("type").and_then(Value::as_str) == Some("text"))
+                .and_then(|c| c.get("text"))
+                .and_then(Value::as_str);
             return Err(Error::new(
                 ErrorKind::Rejected,
                 message.map(str::to_string).unwrap_or_else(|| {
@@ -273,12 +279,33 @@ impl Mcp {
         let text = (content.len() == 1 && content[0].get("type").and_then(Value::as_str) == Some("text"))
             .then(|| content[0].get("text").and_then(Value::as_str).map(str::to_string))
             .flatten();
-        let output = match (result.get("structuredContent"), text) {
+        Ok(match (result.get("structuredContent"), text) {
             (Some(structured), _) => structured.clone(),
             (None, Some(text)) => serde_json::from_str(&text).unwrap_or(Value::String(text)),
             (None, None) => result.clone(),
-        };
-        if output.get("conflict").is_some_and(|c| !matches!(c, Value::Null | Value::Bool(false))) {
+        })
+    }
+
+    fn is_conflict(output: &Value) -> bool {
+        output.get("conflict").is_some_and(|c| !matches!(c, Value::Null | Value::Bool(false)))
+    }
+
+    fn check_ok(name: &str, output: &Value) -> Result<()> {
+        if output.get("ok").and_then(Value::as_bool) == Some(false) {
+            let detail = output
+                .get("error")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .unwrap_or_else(|| trs("operation rejected", "operação recusada", "operación rechazada"));
+            return Err(Error::new(ErrorKind::Rejected, format!("{name}: {detail}")));
+        }
+        Ok(())
+    }
+
+    /// Invokes a tool, raising on rejection (`ok:false`) and on document conflicts.
+    pub async fn call(&self, name: &str, args: Value) -> Result<Value> {
+        let output = self.call_raw(name, args).await?;
+        if Self::is_conflict(&output) {
             return Err(Error::new(
                 ErrorKind::Conflict,
                 trs(
@@ -288,28 +315,18 @@ impl Mcp {
                 ),
             ));
         }
-        if output.get("ok").and_then(Value::as_bool) == Some(false) {
-            let detail = output
-                .get("error")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .unwrap_or_else(|| trs("operation rejected", "operação recusada", "operación rechazada"));
-            return Err(Error::new(ErrorKind::Rejected, format!("{name}: {detail}")));
-        }
+        Self::check_ok(name, &output)?;
         Ok(output)
     }
 
-    /// Like [`call`](Self::call) but a document conflict is returned as data so UIs can resolve it.
+    /// Like [`call`](Self::call) but a document conflict is returned as data (`conflict: true`,
+    /// `current_content`, `current_updated_at`) so a UI can resolve it.
     pub async fn call_allow_conflict(&self, name: &str, args: Value) -> Result<Value> {
-        match self.call(name, args.clone()).await {
-            Err(error) if error.kind == ErrorKind::Conflict => {
-                // Re-issue to read the conflict payload (the server rejects without side effects).
-                let stateless = self.can_use_stateless().await;
-                let result = self.rpc("tools/call", Some(json!({ "name": name, "arguments": args })), false, stateless).await?;
-                Ok(result.get("structuredContent").cloned().unwrap_or(result))
-            }
-            other => other,
+        let output = self.call_raw(name, args).await?;
+        if !Self::is_conflict(&output) {
+            Self::check_ok(name, &output)?;
         }
+        Ok(output)
     }
 
     /// `PUT /api/upload/file` streaming upload (files above 24 MiB, up to 1 GiB).

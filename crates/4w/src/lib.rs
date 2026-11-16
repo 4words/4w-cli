@@ -5,3 +5,4 @@ pub mod commands;
 pub mod getlink;
 pub mod update;
 pub mod util;
+pub mod watch;

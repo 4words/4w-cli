@@ -34,6 +34,16 @@ pub fn raw_safe(text: &str) -> String {
         .collect()
 }
 
+/// Chat message text: like [`text_safe`] but tabs become four spaces so columns stay aligned.
+pub fn msg_safe(text: &str) -> String {
+    text_safe(&text.replace("\r\n", "\n").replace('\t', "    "))
+}
+
+/// Shared document (Markdown): keeps `\n` and `\t`, normalizes `\r\n`, neutralizes everything else.
+pub fn doc_safe(text: &str) -> String {
+    raw_safe(text)
+}
+
 /// Single-line variant used for headers, nicks and list rows: newlines become spaces.
 pub fn clean_line(text: &str) -> String {
     text_safe(text).replace('\n', " ")
@@ -104,6 +114,8 @@ mod tests {
         assert_eq!(text_safe("a\tb"), "a\u{fffd}b");
         assert_eq!(raw_safe("a\u{1b}]0;x\u{7}b\r\nc\td\u{202e}"), "a\u{fffd}]0;x\u{fffd}b\nc\td\u{fffd}");
         assert_eq!(clean_line("a\nb\u{9b}"), "a b\u{fffd}");
+        assert_eq!(msg_safe("a\tb\r\nc\u{1b}"), "a    b\nc\u{fffd}");
+        assert_eq!(doc_safe("a\tb\r\nc\u{1b}"), "a\tb\nc\u{fffd}");
     }
 
     #[test]

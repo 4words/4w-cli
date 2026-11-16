@@ -65,6 +65,60 @@ function llmAuth(values: { "llm-key"?: string; "llm-name"?: string }) {
   return compact({ llm_key, llm_name });
 }
 
+export const NOTIFY_KEY_RE = /^[a-f0-9]{32}$/;
+
+export function normalizeNotifyKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const clean = raw.trim().toLowerCase();
+  if (!clean) return undefined;
+  if (!NOTIFY_KEY_RE.test(clean)) {
+    throw new Error(tr(
+      `Invalid notify_key MD5 (expected 32 lowercase hex characters): ${raw}`,
+      `notify_key MD5 inválido (esperado 32 caracteres hexadecimais): ${raw}`,
+      `notify_key MD5 inválido (se esperaban 32 caracteres hexadecimales): ${raw}`,
+    ));
+  }
+  return clean;
+}
+
+export function extractGlobalNotify(rawArgs: string[]): { args: string[]; notifyKey?: string } {
+  const dashDash = rawArgs.indexOf("--");
+  const head = dashDash < 0 ? rawArgs : rawArgs.slice(0, dashDash);
+  const tail = dashDash < 0 ? [] : rawArgs.slice(dashDash);
+  const filtered: string[] = [];
+  let notifyKey: string | undefined;
+  for (let i = 0; i < head.length; i++) {
+    const token = head[i];
+    if (token === "--notify") {
+      const value = head[i + 1];
+      if (!value || value.startsWith("-")) {
+        throw new Error(tr(
+          "--notify requires a 32-character hexadecimal MD5 notify_key.",
+          "--notify requer um notify_key MD5 hexadecimal de 32 caracteres.",
+          "--notify requiere un notify_key MD5 hexadecimal de 32 caracteres.",
+        ));
+      }
+      notifyKey = normalizeNotifyKey(value);
+      i++;
+      continue;
+    }
+    if (token.startsWith("--notify=")) {
+      const value = token.slice("--notify=".length);
+      if (!value) {
+        throw new Error(tr(
+          "--notify requires a 32-character hexadecimal MD5 notify_key.",
+          "--notify requer um notify_key MD5 hexadecimal de 32 caracteres.",
+          "--notify requiere un notify_key MD5 hexadecimal de 32 caracteres.",
+        ));
+      }
+      notifyKey = normalizeNotifyKey(value);
+      continue;
+    }
+    filtered.push(token);
+  }
+  return { args: [...filtered, ...tail], notifyKey };
+}
+
 function historyPath(): string | undefined {
   if (process.env.FOURWORDS_HISTORY_FILE) return process.env.FOURWORDS_HISTORY_FILE;
   if (process.platform === "win32" && process.env.LOCALAPPDATA) {
@@ -228,7 +282,7 @@ class FourWords {
   readonly endpoint: URL;
   readonly loopback: boolean;
 
-  constructor(private readonly signal?: AbortSignal) {
+  constructor(private readonly signal?: AbortSignal, private readonly notifyKey?: string) {
     this.endpoint = new URL(process.env.FOURWORDS_MCP_URL || `${SITE}/mcp`);
     this.loopback = ["localhost", "127.0.0.1", "[::1]"].includes(this.endpoint.hostname);
     if (!(this.endpoint.protocol === "https:" || (this.loopback && this.endpoint.protocol === "http:")) ||
@@ -346,7 +400,10 @@ class FourWords {
 
   async call(name: string, args: RecordValue) {
     const stateless = this.canUseStateless();
-    const result = record(await this.rpc("tools/call", { name, arguments: args }, false, stateless));
+    const payloadArgs = this.notifyKey && args.notify_key === undefined
+      ? { ...args, notify_key: this.notifyKey }
+      : args;
+    const result = record(await this.rpc("tools/call", { name, arguments: payloadArgs }, false, stateless));
     const content = Array.isArray(result.content) ? result.content : [];
     if (result.isError) {
       const message = content.find((item) => item?.type === "text")?.text;
@@ -381,11 +438,13 @@ class FourWords {
     const uploadUrl = new URL("/api/upload/file", this.endpoint.origin);
     uploadUrl.searchParams.set("name", filename);
     if (burn) uploadUrl.searchParams.set("burn", "1");
+    if (this.notifyKey) uploadUrl.searchParams.set("notify_key", this.notifyKey);
     const timeout = AbortSignal.timeout(600_000);
     const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,
+        ...(this.notifyKey ? { "X-Notify-Key": this.notifyKey } : {}),
         ...this.authHeaders(),
       },
       redirect: "error",
@@ -790,7 +849,9 @@ export async function handleUpdate(
   }
 }
 
-export async function execute(args: string[], signal?: AbortSignal, input?: string): Promise<unknown> {
+export async function execute(rawArgs: string[], signal?: AbortSignal, input?: string): Promise<unknown> {
+  const { args, notifyKey: flagNotifyKey } = extractGlobalNotify(rawArgs);
+  const notifyKey = flagNotifyKey ?? normalizeNotifyKey(process.env.FOURWORDS_NOTIFY_KEY);
   const [command, ...rest] = args;
   let invoke: (mcp: FourWords) => Promise<unknown>;
   let forceInitialize = false;
@@ -1238,7 +1299,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
     ));
   }
 
-  const mcp = new FourWords(signal);
+  const mcp = new FourWords(signal, notifyKey);
   if (!skipMcp && (forceInitialize || (mcp.loopback && process.env.FOURWORDS_STATELESS !== "1") || process.env.FOURWORDS_STATELESS === "0")) {
     await mcp.initialize();
   }

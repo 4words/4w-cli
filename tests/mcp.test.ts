@@ -296,3 +296,31 @@ test("cobertura completa das ferramentas de sala (wait, moderate, register-llm, 
     rollback_to_version: 2,
   });
 });
+
+test("flag global --notify <md5> e fallback FOURWORDS_NOTIFY_KEY repassam notify_key nos payloads MCP", async () => {
+  const md5A = "0123456789abcdef0123456789abcdef";
+  const md5B = "fedcba9876543210fedcba9876543210";
+
+  const viaFlag = await run(["--notify", md5A, "room", "send", "sala-1", "Alerta via flag"]);
+  expect(viaFlag.code).toBe(0);
+  expect(JSON.parse(viaFlag.out)).toMatchObject({
+    tool: "chat_send",
+    url: "sala-1",
+    text: "Alerta via flag",
+    notify_key: md5A,
+  });
+
+  const viaEnv = await run(["room", "send", "sala-1", "Alerta via env"], undefined, { FOURWORDS_NOTIFY_KEY: md5B });
+  expect(viaEnv.code).toBe(0);
+  expect(JSON.parse(viaEnv.out)).toMatchObject({
+    tool: "chat_send",
+    url: "sala-1",
+    text: "Alerta via env",
+    notify_key: md5B,
+  });
+
+  const badFlag = await run(["--notify", "nao-eh-md5", "text", "teste"]);
+  expect(badFlag.code).toBe(1);
+  expect(badFlag.err).toContain("notify_key");
+});
+

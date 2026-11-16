@@ -1,4 +1,4 @@
-import { execute } from "./commands";
+import { execute, extractGlobalNotify } from "./commands";
 import { compareSemver, help, helpTopic, normalizeLang, readConfig, resolveLang, saveLang, updateConfig, VERSION } from "./help";
 import { openTui } from "./tui";
 
@@ -70,7 +70,9 @@ function extractGlobalLang(rawArgs: string[]): string[] {
 }
 
 async function main(rawArgs: string[]) {
-  const args = extractGlobalLang(rawArgs);
+  const langFiltered = extractGlobalLang(rawArgs);
+  const { args, notifyKey } = extractGlobalNotify(langFiltered);
+  if (notifyKey) process.env.FOURWORDS_NOTIFY_KEY = notifyKey;
   const topic = helpTopic(args);
   if (topic !== undefined) return console.log(help(topic));
   if (args[0] === "--version" || args[0] === "version") return console.log(`4w ${VERSION}`);

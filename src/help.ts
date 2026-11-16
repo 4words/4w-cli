@@ -624,6 +624,7 @@ EXAMPLES
 
 ROOM accepts a room URL or its four-word and nine-digit combo.
 FOURWORDS_MCP_URL overrides the MCP endpoint (default ${SITE}/mcp).
+--notify <md5> (or FOURWORDS_NOTIFY_KEY) triggers Web Push alerts via NotificationKeyHub.
 Language (default: en) can be persisted via '4w lang <en|ptbr|es>' or overridden via FOURWORDS_LANG.
 Install, update and uninstall   ${REPO}`;
   }
@@ -676,6 +677,7 @@ EJEMPLOS
 
 SALA acepta el enlace de una sala o su código de cuatro palabras y nueve dígitos.
 FOURWORDS_MCP_URL cambia el endpoint MCP (por defecto ${SITE}/mcp).
+--notify <md5> (o FOURWORDS_NOTIFY_KEY) dispara alertas Web Push vía NotificationKeyHub.
 El idioma (por defecto: en) se guarda con '4w lang <en|ptbr|es>' o con FOURWORDS_LANG.
 Instalación, actualización y eliminación   ${REPO}`;
   }
@@ -727,6 +729,7 @@ EXEMPLOS
 
 SALA aceita o link de uma sala ou o código de quatro palavras e nove dígitos.
 --burn ativa a leitura única. --encrypt aplica criptografia local AES-256-GCM.
+--notify <md5> (ou FOURWORDS_NOTIFY_KEY) dispara notificações Web Push via NotificationKeyHub.
 Resultados e chaves saem em JSON no stdout. Erros vão para stderr com código 1.
 FOURWORDS_MCP_URL altera o endpoint MCP. O padrão é ${SITE}/mcp.
 O idioma (padrão: en) pode ser salvo com '4w lang <en|ptbr|es>' ou definido via FOURWORDS_LANG.

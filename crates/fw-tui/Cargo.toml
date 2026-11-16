@@ -27,4 +27,3 @@ reqwest.workspace = true
 futures-util.workspace = true
 
 [dev-dependencies]
-insta = "1"

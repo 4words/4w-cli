@@ -43,8 +43,8 @@ fn title_line<'a>(app: &App, label: String, focused: bool) -> Line<'a> {
 }
 
 pub fn centered(area: Rect, w: u16, h: u16) -> Rect {
-    let w = w.min(area.width.saturating_sub(2)).max(10);
-    let h = h.min(area.height.saturating_sub(2)).max(3);
+    let w = w.min(area.width.saturating_sub(2)).max(10).min(area.width);
+    let h = h.min(area.height.saturating_sub(2)).max(3).min(area.height);
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
 }
 
@@ -356,7 +356,7 @@ fn draw_chat(f: &mut Frame, app: &mut App, area: Rect) {
         let label = format!(" {} {} ", app.theme.sym().down, fmt(app.s.new_below, &[("n", &app.unread.to_string())]));
         let w = width(&label) as u16;
         if inner.width > w + 2 {
-            let r = Rect { x: inner.x + inner.width - w - 2, y: inner.y + inner.height - 1, width: w, height: 1 };
+            let r = Rect { x: inner.x + inner.width.saturating_sub(w + 2), y: inner.y + inner.height.saturating_sub(1), width: w, height: 1 };
             f.render_widget(Paragraph::new(Line::styled(label, th.selected)), r);
         }
     }
@@ -489,7 +489,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ToastKind::Warn => app.theme.warn,
             ToastKind::Err => app.theme.err,
         };
-        f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(&toast.text, area.width as usize - 1, "…")), style.add_modifier(Modifier::BOLD))), area);
+        f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(&toast.text, (area.width as usize).saturating_sub(1), "…")), style.add_modifier(Modifier::BOLD))), area);
         return;
     }
     let text = if !app.modals.is_empty() {
@@ -506,7 +506,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             Pane::People => s.foot_people,
         }
     };
-    f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(text, area.width as usize - 1, "…")), app.theme.dim)), area);
+    f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(text, (area.width as usize).saturating_sub(1), "…")), app.theme.dim)), area);
 }
 
 // ---- editor ----------------------------------------------------------------------------------
@@ -543,12 +543,12 @@ fn draw_editor(f: &mut Frame, app: &mut App, area: Rect) {
         banner_lines.push(Line::styled(format!(" {}", fmt(s.editor_banner, &[("who", &r.who), ("v", &r.version.to_string())])), th.warn));
     }
     if let Some(e) = &error {
-        banner_lines.push(Line::styled(format!(" {}", clip(e, inner.width as usize - 2, "…")), th.err));
+        banner_lines.push(Line::styled(format!(" {}", clip(e, (inner.width as usize).saturating_sub(2), "…")), th.err));
     }
     if !banner_lines.is_empty() && inner.height > 3 {
         let h = banner_lines.len() as u16;
         f.render_widget(Paragraph::new(banner_lines), Rect { x: inner.x, y: inner.y, width: inner.width, height: h });
-        body = Rect { x: inner.x, y: inner.y + h, width: inner.width, height: inner.height - h };
+        body = Rect { x: inner.x, y: inner.y + h, width: inner.width, height: inner.height.saturating_sub(h) };
     }
     if !loaded {
         let spin = th.sym().spinner[app.spinner % th.sym().spinner.len()];
@@ -660,7 +660,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 let shown = if i == 0 { value.clone().unwrap_or_default() } else { secret(value) };
                 let style = if i == *selected { th.selected } else { th.text };
                 lines.push(Line::styled(format!(" {label}"), th.dim));
-                lines.push(Line::styled(format!(" {}", clip(&shown, inner.width as usize - 2, "…")), style));
+                lines.push(Line::styled(format!(" {}", clip(&shown, (inner.width as usize).saturating_sub(2), "…")), style));
                 lines.push(Line::default());
             }
             lines.push(Line::styled(s.share_hint, th.dim));
@@ -685,7 +685,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let mut lines = vec![Line::styled(fmt(s.conflict_body, &[("who", who)]), th.warn), Line::default()];
             lines.push(Line::from(vec![Span::styled(format!(" +{a} "), th.diff_add), Span::styled(format!("−{d}"), th.diff_del), Span::styled("  (D: diff)", th.dim)]));
             lines.push(Line::default());
-            for row in wrap(s.conflict_opts, inner.width as usize - 2) {
+            for row in wrap(s.conflict_opts, (inner.width as usize).saturating_sub(2)) {
                 lines.push(Line::styled(format!(" {row}"), th.accent));
             }
             f.render_widget(Paragraph::new(lines), inner);
@@ -701,7 +701,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, title);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let mut lines: Vec<Line> = wrap(text, inner.width as usize - 2).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
+            let mut lines: Vec<Line> = wrap(text, (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
             lines.push(Line::default());
             lines.push(Line::styled(format!(" {}", s.confirm_hint), th.accent));
             f.render_widget(Paragraph::new(lines), inner);
@@ -721,7 +721,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             }
             for (i, c) in completions.iter().take(6).enumerate() {
                 let style = if i == *comp_idx { th.selected } else { th.dim };
-                lines.push(Line::styled(format!("  {}", clip(c, inner.width as usize - 4, "…")), style));
+                lines.push(Line::styled(format!("  {}", clip(c, (inner.width as usize).saturating_sub(4), "…")), style));
             }
             f.render_widget(Paragraph::new(lines), inner);
         }
@@ -740,7 +740,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 let Some(m) = app.state.messages.get(*idx) else { continue };
                 let name = m.filename.clone().unwrap_or_else(|| crate::util::file_name_from_url(m.file_url.as_deref().unwrap_or("")));
                 let style = if i == *selected { th.selected } else { th.text };
-                lines.push(Line::styled(format!(" {}  {}  {}", clock(m.ts), clip(&m.nick, 16, "…"), clip(&name, inner.width as usize - 30, "…")), style));
+                lines.push(Line::styled(format!(" {}  {}  {}", clock(m.ts), clip(&m.nick, 16, "…"), clip(&name, (inner.width as usize).saturating_sub(30), "…")), style));
             }
             lines.push(Line::default());
             lines.push(Line::styled(s.files_hint, th.dim));
@@ -752,7 +752,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, s.download_to);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let mut lines = vec![Line::styled(clip(&fw_core::sanitize::mask_secrets(url, app.lang), inner.width as usize - 2, "…"), th.dim), input_line(input, th, true), Line::default()];
+            let mut lines = vec![Line::styled(clip(&fw_core::sanitize::mask_secrets(url, app.lang), (inner.width as usize).saturating_sub(2), "…"), th.dim), input_line(input, th, true), Line::default()];
             if *burn_note {
                 lines.push(Line::styled(" ! burn-after-reading files can be downloaded only once", th.warn));
             }
@@ -789,7 +789,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 let Some(m) = app.state.messages.get(*idx) else { continue };
                 let preview = m.text.replace('\n', " ");
                 let style = if i == sel { th.selected } else { th.text };
-                lines.push(Line::styled(format!(" {} {}: {}", clock(m.ts), m.nick, clip(&preview, inner.width as usize - 16 - width(&m.nick), "…")), style));
+                lines.push(Line::styled(format!(" {} {}: {}", clock(m.ts), m.nick, clip(&preview, (inner.width as usize).saturating_sub(16 + width(&m.nick)), "…")), style));
             }
             f.render_widget(Paragraph::new(lines), inner);
         }
@@ -799,7 +799,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, title);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let lines: Vec<Line> = wrap(&app.mask(body), inner.width as usize - 2).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
+            let lines: Vec<Line> = wrap(&app.mask(body), (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
             f.render_widget(Paragraph::new(lines), inner);
         }
         Modal::Upload(u) => {
@@ -866,7 +866,7 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect, selected: usize, diff_scro
                 s.revision_line,
                 &[("v", &r.version.to_string()), ("nick", &clip(&r.nick, 12, "…")), ("a", &r.additions.to_string()), ("d", &r.deletions.to_string()), ("time", &clock(r.ts))],
             );
-            let mut text = clip(&text, cols[0].width as usize - 1, "…");
+            let mut text = clip(&text, (cols[0].width as usize).saturating_sub(1), "…");
             if r.rollback_from.is_some() {
                 text.push('↺');
             }
@@ -880,7 +880,7 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect, selected: usize, diff_scro
     let pane = Block::new().borders(Borders::LEFT).border_style(th.border);
     let pane_inner = pane.inner(cols[1]);
     f.render_widget(pane, cols[1]);
-    f.render_widget(Paragraph::new(diff_lines(app, &lines, pane_inner.width as usize - 1, diff_scroll, pane_inner.height as usize)), Rect { x: pane_inner.x + 1, ..pane_inner });
+    f.render_widget(Paragraph::new(diff_lines(app, &lines, (pane_inner.width as usize).saturating_sub(1), diff_scroll, pane_inner.height as usize)), Rect { x: pane_inner.x + 1, ..pane_inner });
     f.render_widget(Paragraph::new(Line::styled(clip(s.history_hint, rows[1].width as usize, "…"), th.dim)).alignment(Alignment::Left), rows[1]);
 }
 
@@ -893,7 +893,7 @@ fn draw_moderation(f: &mut Frame, app: &App, area: Rect, person: usize, ban: usi
     let inner = block.inner(rect);
     f.render_widget(block, rect);
     if !app.is_owner() {
-        let lines: Vec<Line> = wrap(s.mod_need_key, inner.width as usize - 2).into_iter().map(|r| Line::styled(format!(" {r}"), th.warn)).collect();
+        let lines: Vec<Line> = wrap(s.mod_need_key, (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::styled(format!(" {r}"), th.warn)).collect();
         f.render_widget(Paragraph::new(lines), inner);
         return;
     }
@@ -904,7 +904,7 @@ fn draw_moderation(f: &mut Frame, app: &App, area: Rect, person: usize, ban: usi
     let mut left = vec![Line::styled(format!(" {}", s.people), if in_bans { th.dim } else { th.accent })];
     for (i, p) in people.iter().enumerate() {
         let style = if i == psel && !in_bans { th.selected } else { th.text };
-        left.push(Line::styled(format!(" {}", clip(&p.nick, cols[0].width as usize - 3, "…")), style));
+        left.push(Line::styled(format!(" {}", clip(&p.nick, (cols[0].width as usize).saturating_sub(3), "…")), style));
     }
     f.render_widget(Paragraph::new(left), cols[0]);
     let bsel = ban.min(bans.len().saturating_sub(1));

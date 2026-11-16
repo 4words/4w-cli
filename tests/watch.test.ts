@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { cliCommand } from "./bin";
+import { cliCommand, isTypeScript } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -201,7 +201,9 @@ test("room watch exige exatamente uma sala e valida --since", async () => {
   expect(bad.err).toContain("--since");
 });
 
-test.skipIf(process.platform === "win32" || typeof (Bun as { Terminal?: unknown }).Terminal === "undefined")(
+// The menu-style TypeScript panel is specific to the TS implementation; the Rust workspace has its
+// own end-to-end suite in tests/room-tui.test.ts.
+test.skipIf(!isTypeScript || process.platform === "win32" || typeof (Bun as { Terminal?: unknown }).Terminal === "undefined")(
   "painel room watch em PTY real: recebe, mascara, envia, abre o doc e restaura o terminal",
   async () => {
     const sent: Record<string, unknown>[] = [];

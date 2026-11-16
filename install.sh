@@ -3,10 +3,10 @@
 fourwords_install() (
     set -eu
     umask 077
-    version='0.3.3'
-    source_sha='1ea7fb246174d59a271c45f3cb36b1d24b5aae1be16a5ca7e0ff93543f38228d'
+    version='0.4.0'
+    source_sha='e56e9f451acd735611a5eced61e146d832ddd6155e35d3f3e816aa1284f55d2e'
     bun_version='1.4.4'
-    release='https://raw.githubusercontent.com/4words/4w-cli/v0.3.3'
+    release='https://raw.githubusercontent.com/4words/4w-cli/v0.4.0'
     action=install
     local_source=''
     local_bun=''

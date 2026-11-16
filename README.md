@@ -109,6 +109,9 @@ Run `4w` or `4w tui` in an interactive terminal. The panel adapts to your termin
 4w room save "$ROOM" revised.md --base 1780000000000
 4w room save "$ROOM" --rollback-version 1
 4w room wait "$ROOM" --since 0 --timeout 20
+4w room watch "$ROOM"                       # live room panel
+4w room watch "$ROOM" --key-file ~/.config/4w/llm.key --mouse
+4w room watch "$ROOM" --jsonl | head        # one JSON event per line, for scripts and agents
 4w room participants "$ROOM"
 4w room nick "$ROOM"
 4w room register-llm "$ROOM" --llm-key "$LLM_KEY" --llm-name claude
@@ -118,6 +121,26 @@ Run `4w` or `4w tui` in an interactive terminal. The panel adapts to your termin
 4w mcp list
 4w mcp call chat_participants - < args.json
 ```
+
+### Live Room Panel (`4w room watch`)
+
+A continuous view of one room: live messages (long-poll with cursor tracking), presence, a marker whenever the shared document changes, and a send field at the bottom. It reconnects by itself with exponential backoff (1 s up to 30 s) and only stops on Esc/Ctrl+C or when the room is permanently unavailable.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Send the typed message |
+| `PgUp` / `PgDn`, `↑` / `↓`, `Home` / `End` | Scroll the feed (`↓ N new` appears while scrolled up) |
+| `Ctrl+D` | Toggle the shared Markdown document |
+| `Ctrl+R` | Show or hide credentials (`fwllm_`, `fwadm_`, delete links are masked by default) |
+| `Ctrl+Y` | Copy the room link via OSC 52 |
+| `Esc` / `Ctrl+C` | Quit (Esc first leaves the document view) |
+
+- `--key-file FILE` (or `FOURWORDS_LLM_KEY_FILE`) loads the agent key from a chmod-600 file, so it never appears in argv or environment dumps. `--from-history` reuses the key stored in the local vault.
+- `--mouse` enables wheel scrolling. It is off by default because mouse reporting disables native text selection in the terminal.
+- Without a TTY, or with `--jsonl`, it prints one sanitized JSON object per line (`ready`, `messages`, `participants`, `doc`, `status`, `ended`) and exits 0 on SIGINT/SIGTERM.
+- Remote text is sanitized before it reaches the screen; a room message cannot inject terminal escape sequences.
+
+**Desktop widget profile** (program + args, no shell): `program: ~/.local/bin/4w`, `args: ["room", "watch", "<ROOM>", "--key-file", "<chmod-600 file>"]`, `env: FOURWORDS_NO_UPDATE_CHECK=1`. `4w` itself performs the daily version check against `raw.githubusercontent.com` unless that variable is set.
 
 ### Environment Variables
 
@@ -180,7 +203,7 @@ sh test_scripts/run_all_verifications.sh
 
 Releases are always signed: create the signing key once with `bun scripts/keygen.mjs` (private key stays outside the repository), export `FOURWORDS_SIGNING_KEY` before `bun scripts/release.mjs`, then commit and push the `v<version>` tag — `4w update` fetches installers from that tag.
 
-To install from a local checkout, run `sh install.sh --source releases/0.3.3/cli.ts`. In PowerShell, run `& .\install.ps1 -Source .\releases\0.3.3\cli.ts`.
+To install from a local checkout, run `sh install.sh --source releases/0.4.0/cli.ts`. In PowerShell, run `& .\install.ps1 -Source .\releases\0.4.0\cli.ts`.
 
 | Environment | Runtime Strategy |
 | --- | --- |

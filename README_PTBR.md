@@ -109,6 +109,9 @@ Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largur
 4w room save "$SALA" revisado.md --base 1780000000000
 4w room save "$SALA" --rollback-version 1
 4w room wait "$SALA" --since 0 --timeout 20
+4w room watch "$SALA"                       # painel ao vivo da sala
+4w room watch "$SALA" --key-file ~/.config/4w/llm.key --mouse
+4w room watch "$SALA" --jsonl | head        # um evento JSON por linha, para scripts e agentes
 4w room participants "$SALA"
 4w room nick "$SALA"
 4w room register-llm "$SALA" --llm-key "$LLM_KEY" --llm-name claude
@@ -118,6 +121,26 @@ Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largur
 4w mcp list
 4w mcp call chat_participants - < argumentos.json
 ```
+
+### Painel ao vivo da sala (`4w room watch`)
+
+Visão contínua de uma sala: mensagens em tempo real (long-poll com controle de cursor), presença, um marcador sempre que o documento compartilhado muda e um campo de envio embaixo. Reconecta sozinho com backoff exponencial (de 1 s até 30 s) e só encerra com Esc/Ctrl+C ou quando a sala fica indisponível de vez.
+
+| Tecla | Ação |
+| --- | --- |
+| `Enter` | Envia a mensagem digitada |
+| `PgUp` / `PgDn`, `↑` / `↓`, `Home` / `End` | Rola o feed (`↓ N novas` aparece enquanto você está acima do fim) |
+| `Ctrl+D` | Alterna o documento Markdown compartilhado |
+| `Ctrl+R` | Mostra ou oculta credenciais (`fwllm_`, `fwadm_` e links de exclusão ficam mascarados por padrão) |
+| `Ctrl+Y` | Copia o link da sala via OSC 52 |
+| `Esc` / `Ctrl+C` | Sai (o primeiro Esc fecha a visão do documento) |
+
+- `--key-file ARQUIVO` (ou `FOURWORDS_LLM_KEY_FILE`) carrega a chave do agente de um arquivo chmod 600, sem expô-la em argv nem no ambiente. `--from-history` reaproveita a chave do cofre local.
+- `--mouse` ativa a roda do mouse. Fica desligado por padrão porque o reporte de mouse desativa a seleção de texto nativa do terminal.
+- Sem TTY, ou com `--jsonl`, imprime um objeto JSON sanitizado por linha (`ready`, `messages`, `participants`, `doc`, `status`, `ended`) e sai com 0 em SIGINT/SIGTERM.
+- O texto remoto é sanitizado antes de chegar à tela; uma mensagem de sala não injeta sequências de escape no terminal.
+
+**Perfil de widget de desktop** (programa + argumentos, sem shell): `program: ~/.local/bin/4w`, `args: ["room", "watch", "<SALA>", "--key-file", "<arquivo chmod 600>"]`, `env: FOURWORDS_NO_UPDATE_CHECK=1`. O próprio `4w` faz a checagem diária de versão em `raw.githubusercontent.com`, a menos que essa variável esteja definida.
 
 ### Variáveis de Ambiente
 
@@ -180,7 +203,7 @@ sh test_scripts/run_all_verifications.sh
 
 Todo release é assinado: crie a chave uma vez com `bun scripts/keygen.mjs` (a privada fica fora do repositório), exporte `FOURWORDS_SIGNING_KEY` antes de `bun scripts/release.mjs` e então faça commit e push da tag `v<versão>` — o `4w update` baixa os instaladores dessa tag.
 
-Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.3/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.3\cli.ts`.
+Para instalar de um checkout local, rode `sh install.sh --source releases/0.4.0/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.4.0\cli.ts`.
 
 | Ambiente | Carregamento |
 | --- | --- |

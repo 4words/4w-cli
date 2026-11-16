@@ -672,6 +672,13 @@ export function keyGuideFor(lang = resolveLang()): string {
       "E                   Edit the displayed Markdown revision",
       "D                   Destroy recently published content",
       "Y                   Copy public link if terminal supports OSC 52",
+      "",
+      "ROOM WATCH (4w room watch ROOM)",
+      "Enter               Send message",
+      "PgUp / PgDn         Scroll the feed (Home / End: oldest / newest)",
+      "Ctrl+D              Toggle shared document",
+      "Ctrl+R              Show or hide credentials",
+      "Ctrl+Y              Copy room link (OSC 52)",
     ].join("\n");
   }
   if (lang === "es") {
@@ -698,6 +705,13 @@ export function keyGuideFor(lang = resolveLang()): string {
       "E                   Editar el Markdown de la revisión mostrada",
       "D                   Destruir el contenido recién publicado",
       "Y                   Copiar enlace público si la terminal acepta OSC 52",
+      "",
+      "ROOM WATCH (4w room watch SALA)",
+      "Enter               Enviar mensaje",
+      "PgUp / PgDn         Desplazar el feed (Home / End: más antiguo / más nuevo)",
+      "Ctrl+D              Alternar documento compartido",
+      "Ctrl+R              Mostrar u ocultar credenciales",
+      "Ctrl+Y              Copiar enlace de la sala (OSC 52)",
     ].join("\n");
   }
   return [
@@ -723,6 +737,13 @@ export function keyGuideFor(lang = resolveLang()): string {
     "E                   Editar o Markdown da revisão exibida",
     "D                   Destruir o conteúdo recém-publicado",
     "Y                   Copiar link público se o terminal aceitar OSC 52",
+    "",
+    "ROOM WATCH (4w room watch SALA)",
+    "Enter               Enviar mensagem",
+    "PgUp / PgDn         Rolar o feed (Home / End: mais antiga / mais nova)",
+    "Ctrl+D              Alternar documento compartilhado",
+    "Ctrl+R              Mostrar ou ocultar credenciais",
+    "Ctrl+Y              Copiar link da sala (OSC 52)",
   ].join("\n");
 }
 

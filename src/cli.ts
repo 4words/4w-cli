@@ -2,6 +2,7 @@ import { assertSafeUrl, execute, extractGlobalNotify } from "./commands";
 import { compareSemver, help, helpTopic, normalizeLang, readConfig, resolveLang, saveLang, updateConfig, VERSION } from "./help";
 import { rawSafe } from "./tui-model";
 import { openTui } from "./tui";
+import { runWatch } from "./watch-cli";
 
 async function checkUpdateNotice(): Promise<void> {
   if (process.env.FOURWORDS_NO_UPDATE_CHECK === "1") return;
@@ -84,6 +85,7 @@ async function main(rawArgs: string[]) {
     return console.log(`4w ${VERSION} OK`);
   }
   if (args[0] !== "update") void checkUpdateNotice();
+  if (args[0] === "room" && args[1] === "watch") return runWatch(args.slice(2));
   if (!args.length || (args.length === 1 && args[0] === "tui")) {
     if (process.stdin.isTTY && process.stdout.isTTY && process.env.TERM !== "dumb") {
       return openTui(execute);

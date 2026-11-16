@@ -1,5 +1,6 @@
-import { execute, extractGlobalNotify } from "./commands";
+import { assertSafeUrl, execute, extractGlobalNotify } from "./commands";
 import { compareSemver, help, helpTopic, normalizeLang, readConfig, resolveLang, saveLang, updateConfig, VERSION } from "./help";
+import { rawSafe } from "./tui-model";
 import { openTui } from "./tui";
 
 async function checkUpdateNotice(): Promise<void> {
@@ -25,9 +26,11 @@ async function checkUpdateNotice(): Promise<void> {
 
   if (now - lastCheck > ONE_DAY_MS) {
     try {
-      const updateUrl = process.env.FOURWORDS_UPDATE_URL ||
-        "https://raw.githubusercontent.com/4words/4w-cli/main/package.json";
-      const res = await fetch(updateUrl, { signal: AbortSignal.timeout(1500) });
+      const updateUrl = assertSafeUrl(
+        process.env.FOURWORDS_UPDATE_URL || "https://raw.githubusercontent.com/4words/4w-cli/main/package.json",
+        "FOURWORDS_UPDATE_URL",
+      ).href;
+      const res = await fetch(updateUrl, { signal: AbortSignal.timeout(1500), redirect: "error" });
       if (res.ok) {
         const data = (await res.json()) as { version?: string };
         if (data?.version && typeof data.version === "string") {
@@ -96,6 +99,16 @@ async function main(rawArgs: string[]) {
   const result = await execute(args);
   if (result && typeof result === "object" && "__raw" in result && (result as { __raw?: unknown }).__raw !== undefined) {
     const raw = (result as { __raw: string | Buffer }).__raw;
+    if (process.stdout.isTTY) {
+      if (typeof raw !== "string") {
+        const lang = resolveLang();
+        if (lang === "ptbr") throw new Error("Saída binária bloqueada no terminal. Use --output ARQUIVO ou redirecione o stdout.");
+        if (lang === "es") throw new Error("Salida binaria bloqueada en la terminal. Use --output ARCHIVO o redirija stdout.");
+        throw new Error("Binary output blocked on a terminal. Use --output FILE or redirect stdout.");
+      }
+      process.stdout.write(rawSafe(raw));
+      return;
+    }
     process.stdout.write(raw);
     return;
   }

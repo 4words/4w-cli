@@ -324,3 +324,104 @@ test("flag global --notify <md5> e fallback FOURWORDS_NOTIFY_KEY repassam notify
   expect(badFlag.err).toContain("notify_key");
 });
 
+
+test("4w get --raw em pipe preserva os bytes remotos, inclusive escapes", async () => {
+  storedBinary = undefined;
+  storedText = "antes \x1b]0;pwn\x07 \x1b[31mdepois\tfim";
+  const res = await run(["get", "rio-sol-lua-mar-123456789", "--raw"]);
+  expect(res.code).toBe(0);
+  expect(res.out).toBe("antes \x1b]0;pwn\x07 \x1b[31mdepois\tfim");
+});
+
+test.skipIf(process.platform !== "linux" || !Bun.which("python3"))(
+  "4w get --raw em TTY neutraliza escapes e bloqueia binário",
+  async () => {
+    const ptyRunner = "import pty,sys,os; sys.exit(os.waitstatus_to_exitcode(pty.spawn(sys.argv[1:])))";
+    const env: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      FOURWORDS_MCP_URL: server.url.href,
+      FOURWORDS_HISTORY_FILE: join(directory, "history.json"),
+      FOURWORDS_CONFIG_FILE: join(directory, "config.json"),
+      FOURWORDS_NO_UPDATE_CHECK: "1",
+    };
+    delete env.FOURWORDS_LANG;
+    const spawnPty = (...args: string[]) => Bun.spawn(
+      ["python3", "-c", ptyRunner, process.execPath, cli, ...args],
+      { env, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
+    );
+
+    storedBinary = undefined;
+    storedText = "antes \x1b]0;pwn\x07 \x1b[31mdepois\tfim";
+    const texto = spawnPty("get", "rio-sol-lua-mar-123456789", "--raw");
+    const [codeText, outText] = await Promise.all([texto.exited, texto.stdout.text()]);
+    expect(codeText).toBe(0);
+    expect(outText).toContain("�");
+    expect(outText).toContain("depois\tfim");
+    expect(outText).not.toContain("\x1b]0;");
+    expect(outText).not.toContain("\x1b[31m");
+
+    storedBinary = new Uint8Array([0x00, 0x01, 0xfe, 0xff, 0x1b, 0x5d]);
+    const binario = spawnPty("get", "rio-sol-lua-mar-123456789", "--raw");
+    const [codeBin, outBin] = await Promise.all([binario.exited, binario.stdout.text()]);
+    expect(codeBin).toBe(1);
+    expect(outBin).toContain("Binary output blocked");
+    storedBinary = undefined;
+  },
+);
+
+test("--key-file, FOURWORDS_LLM_KEY_FILE, precedência e permissões do arquivo de chave", async () => {
+  const keyPath = join(directory, "llm.key");
+  await writeFile(keyPath, "fwllm_arquivo\n", { mode: 0o600 });
+
+  const viaFlag = await run(["room", "send", "sala-1", "oi", "--key-file", keyPath]);
+  expect(viaFlag.code).toBe(0);
+  expect(JSON.parse(viaFlag.out)).toMatchObject({ tool: "chat_send", llm_key: "fwllm_arquivo" });
+
+  const viaEnv = await run(["room", "wait", "sala-1"], undefined, { FOURWORDS_LLM_KEY_FILE: keyPath });
+  expect(viaEnv.code).toBe(0);
+  expect(JSON.parse(viaEnv.out)).toMatchObject({ tool: "chat_wait_events", llm_key: "fwllm_arquivo" });
+
+  const explicitWins = await run(["room", "send", "sala-1", "oi", "--key-file", keyPath, "--llm-key", "fwllm_direto"]);
+  expect(explicitWins.code).toBe(0);
+  expect(JSON.parse(explicitWins.out)).toMatchObject({ llm_key: "fwllm_direto" });
+
+  if (process.platform !== "win32") {
+    const openPath = join(directory, "llm-aberto.key");
+    await writeFile(openPath, "fwllm_aberto", { mode: 0o644 });
+    const rejected = await run(["room", "send", "sala-1", "oi", "--key-file", openPath]);
+    expect(rejected.code).toBe(1);
+    expect(rejected.err).toContain("chmod 600");
+  }
+
+  const missing = await run(["room", "send", "sala-1", "oi", "--key-file", join(directory, "nao-existe.key")]);
+  expect(missing.code).toBe(1);
+
+  const adminPath = join(directory, "admin.key");
+  await writeFile(adminPath, "fwadm_arquivo", { mode: 0o600 });
+  const mod = await run(["room", "moderate", "sala-1", "list", "--admin-key-file", adminPath]);
+  expect(mod.code).toBe(0);
+  expect(JSON.parse(mod.out)).toMatchObject({ tool: "chat_moderate", admin_key: "fwadm_arquivo" });
+});
+
+test("--from-history recupera a llm_key salva no cofre local para a sala", async () => {
+  const historyFile = join(directory, "history-fromhist.json");
+  await writeFile(historyFile, JSON.stringify([
+    {
+      created_at: Date.now(),
+      command: "room create",
+      url: `${server.url.origin}/lua-gato-sol-rio-123456789`,
+      combo: "lua-gato-sol-rio-123456789",
+      llm_key: "fwllm_do_cofre",
+    },
+  ]), { mode: 0o600 });
+
+  const res = await run(["room", "send", "lua-gato-sol-rio-123456789", "oi", "--from-history"],
+    undefined, { FOURWORDS_HISTORY_FILE: historyFile });
+  expect(res.code).toBe(0);
+  expect(JSON.parse(res.out)).toMatchObject({ tool: "chat_send", llm_key: "fwllm_do_cofre" });
+
+  const semFlag = await run(["room", "send", "lua-gato-sol-rio-123456789", "oi"],
+    undefined, { FOURWORDS_HISTORY_FILE: historyFile });
+  expect(semFlag.code).toBe(0);
+  expect(JSON.parse(semFlag.out).llm_key).toBeUndefined();
+});

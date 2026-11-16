@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { help, helpTopic, resolveLang, saveLang } from "../src/help";
-import { actionsFor, deleteLink, keyGuideFor, publicLink, resultJson, textSafe } from "../src/tui-model";
+import { actionsFor, deleteLink, keyGuideFor, publicLink, rawSafe, resultJson, textSafe } from "../src/tui-model";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 const terminalSession = fileURLToPath(new URL("./terminal-session.py", import.meta.url));
@@ -78,6 +78,7 @@ test("respostas do painel protegem credenciais e bloqueiam controles VT", () => 
   expect(publicLink({ url: "https://fourwords.example/d/" + "a".repeat(128) })).toBeUndefined();
   expect(deleteLink(result)).toBe(result.delete_url);
   expect(textSafe("x\x1b[32m\u202e")).toBe("x\ufffd[32m\ufffd");
+  expect(rawSafe("a\x1b]0;x\x07b\r\nc\td\u202e")).toBe("a\ufffd]0;x\ufffdb\nc\td\ufffd");
 });
 
 test("4w sem TTY imprime ajuda em inglês por padrão e lembra idioma salvo via 4w lang", async () => {

@@ -117,3 +117,24 @@ test("4w update reporta erro caso o instalador falhe com código não zero", asy
   expect(code).toBe(1);
   expect(err).toContain("Disk full error");
 });
+
+test("4w update rejeita URLs de atualização e instalador sem HTTPS fora do loopback", async () => {
+  const httpRemote = await run(["update", "--check"], { FOURWORDS_UPDATE_URL: "http://exemplo.com/package.json" });
+  expect(httpRemote.code).toBe(1);
+  expect(httpRemote.err).toContain("FOURWORDS_UPDATE_URL");
+
+  const withCreds = await run(["update", "--check"], { FOURWORDS_UPDATE_URL: "https://user:pass@exemplo.com/package.json" });
+  expect(withCreds.code).toBe(1);
+  expect(withCreds.err).toContain("FOURWORDS_UPDATE_URL");
+
+  const loopback = await run(["update", "--check"]);
+  expect(loopback.code).toBe(0);
+
+  const badInstaller = await run(["update", "--force"], { FOURWORDS_INSTALLER_URL: "http://exemplo.com/install.sh" });
+  expect(badInstaller.code).toBe(1);
+  expect(badInstaller.err).toContain("FOURWORDS_INSTALLER_URL");
+
+  const missingScript = await run(["update", "--force"], { FOURWORDS_INSTALLER_SCRIPT: join(directory, "nao-existe.sh") });
+  expect(missingScript.code).toBe(1);
+  expect(missingScript.err).toContain("FOURWORDS_INSTALLER_SCRIPT");
+});

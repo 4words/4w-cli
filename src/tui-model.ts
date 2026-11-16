@@ -138,7 +138,7 @@ const copyByLang: Record<Lang, Copy> = {
     fileLabel: "File path",
     fileHint: "Paste the path without quotes",
     llmKeyLabel: "LLM Key (optional)",
-    llmKeyHint: "fwllm_... to authenticate as an agent",
+    llmKeyHint: "fwllm_... to authenticate as an agent (CLI also accepts --key-file)",
     llmNameLabel: "LLM Agent Name (optional)",
     llmNameHint: "e.g., claude, gemini, cursor",
     textTitle: "Publish text",
@@ -231,7 +231,7 @@ const copyByLang: Record<Lang, Copy> = {
     fileLabel: "Caminho do arquivo",
     fileHint: "Cole o caminho sem aspas",
     llmKeyLabel: "Chave LLM (opcional)",
-    llmKeyHint: "fwllm_... para autenticar como agente",
+    llmKeyHint: "fwllm_... para autenticar como agente (a CLI também aceita --key-file)",
     llmNameLabel: "Nome do agente LLM (opcional)",
     llmNameHint: "Ex.: claude, gemini, cursor",
     textTitle: "Publicar texto",
@@ -324,7 +324,7 @@ const copyByLang: Record<Lang, Copy> = {
     fileLabel: "Ruta del archivo",
     fileHint: "Pegue la ruta sin comillas",
     llmKeyLabel: "Clave LLM (opcional)",
-    llmKeyHint: "fwllm_... para autenticar como agente",
+    llmKeyHint: "fwllm_... para autenticar como agente (la CLI también acepta --key-file)",
     llmNameLabel: "Nombre del agente LLM (opcional)",
     llmNameHint: "Ej.: claude, gemini, cursor",
     textTitle: "Publicar texto",
@@ -731,6 +731,13 @@ export const keyGuide = keyGuideFor();
 export function textSafe(text: string): string {
   // Keep remote text from injecting VT commands or direction overrides.
   return text.replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, "\ufffd");
+}
+
+export function rawSafe(text: string): string {
+  // Keep `get --raw` output from injecting VT commands when stdout is a TTY,
+  // while preserving newlines and tabs for readable plain text.
+  return text.replace(/\r\n/g, "\n")
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, "\ufffd");
 }
 
 function secretKey(key: string): boolean {

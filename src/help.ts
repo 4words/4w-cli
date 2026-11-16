@@ -210,7 +210,7 @@ const topicsPt = {
   },
   "room register-llm": {
     label: "Registrar agente LLM",
-    usage: "4w room register-llm SALA --llm-key CHAVE [--llm-name NOME]",
+    usage: "4w room register-llm SALA <--llm-key CHAVE | --key-file ARQUIVO | --from-history> [--llm-name NOME]",
     details: "Autentica um agente de IA usando a llm_key da sala para exibir o selo dourado de LLM e receber eventos.",
     examples: ['4w room register-llm "$SALA" --llm-key "$LLM_KEY" --llm-name claude'],
   },
@@ -365,7 +365,7 @@ const topicsEn: Record<Topic, TopicEntry> = {
   },
   "room register-llm": {
     label: "Register LLM agent",
-    usage: "4w room register-llm ROOM --llm-key KEY [--llm-name NAME]",
+    usage: "4w room register-llm ROOM <--llm-key KEY | --key-file FILE | --from-history> [--llm-name NAME]",
     details: "Authenticates with the room llm_key to appear as a golden LLM agent.",
     examples: ['4w room register-llm "$ROOM" --llm-key "$LLM_KEY" --llm-name claude'],
   },
@@ -625,6 +625,7 @@ EXAMPLES
 ROOM accepts a room URL or its four-word and nine-digit combo.
 FOURWORDS_MCP_URL overrides the MCP endpoint (default ${SITE}/mcp).
 --notify <md5> (or FOURWORDS_NOTIFY_KEY) triggers Web Push alerts via NotificationKeyHub.
+--key-file FILE (or FOURWORDS_LLM_KEY_FILE) reads the fwllm_ key from a chmod-600 file; --from-history reuses the key saved by 4w history.
 Language (default: en) can be persisted via '4w lang <en|ptbr|es>' or overridden via FOURWORDS_LANG.
 Install, update and uninstall   ${REPO}`;
   }
@@ -678,6 +679,7 @@ EJEMPLOS
 SALA acepta el enlace de una sala o su código de cuatro palabras y nueve dígitos.
 FOURWORDS_MCP_URL cambia el endpoint MCP (por defecto ${SITE}/mcp).
 --notify <md5> (o FOURWORDS_NOTIFY_KEY) dispara alertas Web Push vía NotificationKeyHub.
+--key-file ARCHIVO (o FOURWORDS_LLM_KEY_FILE) lee la clave fwllm_ desde un archivo chmod 600; --from-history reutiliza la clave guardada por 4w history.
 El idioma (por defecto: en) se guarda con '4w lang <en|ptbr|es>' o con FOURWORDS_LANG.
 Instalación, actualización y eliminación   ${REPO}`;
   }
@@ -730,6 +732,7 @@ EXEMPLOS
 SALA aceita o link de uma sala ou o código de quatro palavras e nove dígitos.
 --burn ativa a leitura única. --encrypt aplica criptografia local AES-256-GCM.
 --notify <md5> (ou FOURWORDS_NOTIFY_KEY) dispara notificações Web Push via NotificationKeyHub.
+--key-file ARQUIVO (ou FOURWORDS_LLM_KEY_FILE) lê a chave fwllm_ de um arquivo chmod 600; --from-history reaproveita a chave salva pelo 4w history.
 Resultados e chaves saem em JSON no stdout. Erros vão para stderr com código 1.
 FOURWORDS_MCP_URL altera o endpoint MCP. O padrão é ${SITE}/mcp.
 O idioma (padrão: en) pode ser salvo com '4w lang <en|ptbr|es>' ou definido via FOURWORDS_LANG.

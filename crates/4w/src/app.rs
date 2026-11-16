@@ -5,6 +5,7 @@ use crate::util::extract_global_notify;
 use fw_core::lang::{self, Lang};
 use fw_core::sanitize::raw_safe;
 use fw_core::{Error, Result, config, help};
+use serde_json::Value;
 use std::io::{IsTerminal, Write};
 
 /// Removes `--lang X` / `--lang=X` (before `--`), persists it and applies it for this process.
@@ -85,10 +86,22 @@ pub async fn run(raw_args: Vec<String>) -> Result<()> {
         println!("{}", help::help(None, lang::resolve())?);
         return Ok(());
     }
-    if args.len() >= 2 && args[0] == "room" && args[1] == "watch" {
+    if args.len() >= 2 && args[0] == "room" && (args[1] == "watch" || args[1] == "open") {
         return crate::watch::run(&args[2..]).await;
     }
-    match execute(&args, &Ctx { input: None }).await? {
+    let mut args = args;
+    if args.len() >= 2 && args[0] == "room" && args[1] == "create" {
+        match crate::watch::create_and_open(&args[2..]).await? {
+            Some(crate::commands::Output::Json(Value::Null)) => return Ok(()),
+            Some(other) => return print_output(other),
+            None => args.retain(|a| a != "--json"),
+        }
+    }
+    print_output(execute(&args, &Ctx { input: None }).await?)
+}
+
+fn print_output(output: Output) -> Result<()> {
+    match output {
         Output::Json(value) => {
             let mut text = serde_json::to_string_pretty(&value)?;
             text.push('\n');

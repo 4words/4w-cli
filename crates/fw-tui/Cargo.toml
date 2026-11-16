@@ -12,14 +12,19 @@ workspace = true
 [dependencies]
 fw-core = { path = "../fw-core" }
 fw-room = { path = "../fw-room" }
+base64.workspace = true
+chrono.workspace = true
+pulldown-cmark.workspace = true
 ratatui.workspace = true
 ratatui-textarea.workspace = true
-pulldown-cmark.workspace = true
+serde_json.workspace = true
 similar.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 unicode-segmentation.workspace = true
 unicode-width.workspace = true
-serde_json.workspace = true
-chrono.workspace = true
+reqwest.workspace = true
+futures-util.workspace = true
 
 [dev-dependencies]
+insta = "1"

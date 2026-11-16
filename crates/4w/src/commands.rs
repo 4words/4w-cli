@@ -128,7 +128,7 @@ async fn get_command(rest: &[String], notify: Option<String>) -> Result<Output> 
     let p = args::parse(rest, &[string_short("output", 'o'), flag("raw"), string("key")])?;
     exact(&p.positionals, 1, "get LINK_OR_COMBO [--output FILE] [--raw] [--key KEY]")?;
     let mcp = Mcp::new(notify)?;
-    let (meta, raw) = fetch_link(&mcp, &p.positionals[0], p.get("output"), p.flag("raw"), p.get("key")).await?;
+    let (meta, raw) = fetch_link(mcp.endpoint(), &p.positionals[0], p.get("output"), p.flag("raw"), p.get("key")).await?;
     vault::save_entry("get", &meta);
     Ok(match raw {
         Some(payload) => Output::Raw { meta, payload },

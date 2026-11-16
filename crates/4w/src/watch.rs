@@ -10,9 +10,10 @@ use fw_room::{Auth, Conn, Event, RoomClient, Role, SyncOptions, TransportMode};
 use serde_json::{Value, json};
 use std::io::Write;
 
-pub const WATCH_USAGE: &str = "room watch ROOM [--nick NICK] [--llm-key KEY | --key-file FILE | --from-history] [--llm-name NAME] [--since N] [--transport auto|sse|poll] [--no-mouse] [--jsonl]";
+pub const WATCH_USAGE: &str = "room watch ROOM [--nick NICK] [--llm-key KEY | --key-file FILE | --from-history] [--llm-name NAME] [--since N] [--transport auto|sse|poll] [--admin-key-file FILE] [--no-mouse] [--jsonl]";
 
 pub struct WatchOptions {
+    pub admin_key: Option<String>,
     pub room: String,
     pub client: RoomClient,
     pub sync: SyncOptions,
@@ -103,6 +104,7 @@ pub fn parse(rest: &[String]) -> Result<(WatchOptions, bool)> {
             flag("from-history"),
             string("since"),
             string("transport"),
+            string("admin-key-file"),
             flag("mouse"),
             flag("no-mouse"),
             flag("jsonl"),
@@ -117,10 +119,14 @@ pub fn parse(rest: &[String]) -> Result<(WatchOptions, bool)> {
         resolved.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_ref()).and_then(Value::as_str).map(str::to_string)
     };
     let auth = Auth { llm_key: pick("llm_key"), llm_name: pick("llm_name") };
+    let admin_key = match p.get("admin-key-file") {
+        Some(path) => Some(fw_core::secrets::read_secret_file(path, "--admin-key-file")?.to_string()),
+        None => std::env::var("FOURWORDS_ADMIN_KEY").ok().filter(|k| !k.trim().is_empty()),
+    };
     let mcp = Mcp::new(None)?;
     let client = RoomClient::new(mcp, room.clone(), auth).with_fixed_nick(p.get("nick").map(str::to_string));
     let sync = SyncOptions { since, mode: transport, ..Default::default() };
-    Ok((WatchOptions { room, client, sync, mouse: !p.flag("no-mouse") }, p.flag("jsonl")))
+    Ok((WatchOptions { admin_key, room, client, sync, mouse: !p.flag("no-mouse") }, p.flag("jsonl")))
 }
 
 fn interactive() -> bool {
@@ -136,7 +142,7 @@ pub async fn run(rest: &[String]) -> Result<()> {
             client: opts.client,
             sync: opts.sync,
             mouse: opts.mouse,
-            owner_admin_key: fw_core::vault::admin_key_for(&opts.room),
+            owner_admin_key: opts.admin_key.clone(),
             vault_link: None,
         })
         .await;
@@ -189,4 +195,43 @@ async fn stream_jsonl(opts: WatchOptions) -> Result<()> {
         return Err(Error::other(trs("Room unavailable.", "Sala indisponível.", "Sala no disponible.")));
     }
     Ok(())
+}
+
+fn force_json(rest: &[String]) -> bool {
+    rest.iter().any(|a| a == "--json") || !interactive()
+}
+
+/// `4w room create` on a TTY creates the room and opens the workspace; with `--json`, or without a
+/// TTY, it prints the JSON credentials exactly like before (scripts and agents keep working).
+pub async fn create_and_open(rest: &[String]) -> Result<Option<crate::commands::Output>> {
+    if force_json(rest) {
+        return Ok(None);
+    }
+    let mut args = vec!["room".to_string(), "create".to_string()];
+    args.extend(rest.iter().filter(|a| *a != "--no-open").cloned());
+    let output = crate::commands::execute(&args, &crate::commands::Ctx { input: None }).await?;
+    let crate::commands::Output::Json(created) = output else { return Ok(None) };
+    if rest.iter().any(|a| a == "--no-open") {
+        return Ok(Some(crate::commands::Output::Json(created)));
+    }
+    let link = created
+        .get("fourwords_url")
+        .and_then(Value::as_str)
+        .or_else(|| created.get("url").and_then(Value::as_str))
+        .ok_or_else(|| Error::protocol("chat_create returned no room link"))?
+        .to_string();
+    let admin = created.get("admin_key").and_then(Value::as_str).map(str::to_string);
+    let mcp = Mcp::new(None)?;
+    mcp.ensure_ready(false).await?;
+    let client = RoomClient::new(mcp, link.clone(), Auth::default());
+    fw_tui::run_room(fw_tui::RoomLaunch { client, sync: SyncOptions::default(), mouse: true, owner_admin_key: admin, vault_link: Some(link.clone()) }).await?;
+    println!(
+        "{}",
+        trs(
+            format!("Room: {link}\nCredentials stay in the local vault for 24 h (4w history)."),
+            format!("Sala: {link}\nAs credenciais ficam no cofre local por 24 h (4w history)."),
+            format!("Sala: {link}\nLas credenciales quedan en la bóveda local por 24 h (4w history)."),
+        )
+    );
+    Ok(Some(crate::commands::Output::Json(Value::Null)))
 }

@@ -4,7 +4,23 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
 
-printf '[1/5] Generating release bundle and syncing installers...\n'
+printf '[1/5] Generating release bundle, signing installers and syncing...\n'
+# Releases must always be signed. Use the real key when present; otherwise
+# generate an ephemeral key so the hermetic verification still runs end to end
+# (the resulting .minisig files are only valid locally: do not commit them).
+if [ -z "${FOURWORDS_SIGNING_KEY:-}" ]; then
+    default_key="$HOME/.config/4words-release/minisign.key"
+    if [ -f "$default_key" ]; then
+        FOURWORDS_SIGNING_KEY="$default_key"
+    else
+        tmp_key=$(mktemp -u)
+        bun scripts/keygen.mjs "$tmp_key" >/dev/null
+        git checkout -- minisign.pub 2>/dev/null || true
+        FOURWORDS_SIGNING_KEY="$tmp_key"
+        printf '      (ephemeral signing key: local .minisig files are not publishable)\n'
+    fi
+    export FOURWORDS_SIGNING_KEY
+fi
 bun scripts/release.mjs
 
 printf '[2/5] Validating POSIX shell syntax of install.sh...\n'

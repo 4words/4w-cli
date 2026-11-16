@@ -24,9 +24,19 @@ if (existsSync(artifact) && !readFileSync(artifact).equals(cli)) {
   throw new Error(`Version ${version} was already generated with different content. Increment VERSION.`);
 }
 writeFileSync(artifact, cli);
+const signingKey = process.env.FOURWORDS_SIGNING_KEY;
+if (!signingKey) {
+  throw new Error("Set FOURWORDS_SIGNING_KEY to the release signing key file (see scripts/keygen.mjs). Releases are never published unsigned.");
+}
+const { signFiles } = await import("./sign.mjs");
+const installers = [];
 for (const name of ["install.sh", "install.ps1"]) {
   const template = readFileSync(new URL(`scripts/${name}.in`, root), "utf8");
-  const content = template.replace("@VERSION@", version).replace("@SOURCE_SHA@", sha);
-  writeFileSync(new URL(name, root), (name.endsWith(".ps1") ? "\uFEFF" : "") + content);
+  const content = template.replaceAll("@VERSION@", version).replace("@SOURCE_SHA@", sha);
+  const path = fileURLToPath(new URL(name, root));
+  writeFileSync(path, (name.endsWith(".ps1") ? "\uFEFF" : "") + content);
+  installers.push(path);
 }
-console.log(`4w ${version}\nSHA-256 cli.ts: ${sha}\nOutputs: install.sh, install.ps1, and releases/${version}/cli.ts`);
+signFiles(installers, signingKey);
+console.log(`4w ${version}\nSHA-256 cli.ts: ${sha}\nOutputs: install.sh(.minisig), install.ps1(.minisig), and releases/${version}/cli.ts`);
+console.log(`Publish: commit, then tag v${version} and push the tag — 4w update downloads installers from the tag.`);

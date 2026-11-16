@@ -7,7 +7,7 @@ This document describes the verification scripts and test suites of the `4w-cli`
 ## 1. Scripts in `test_scripts/`
 
 ### [`run_all_verifications.sh`](./run_all_verifications.sh)
-- **Purpose**: Run end-to-end hermetic validation of the `4w-cli` (`v0.3.2`) repository.
+- **Purpose**: Run end-to-end hermetic validation of the `4w-cli` (`v0.3.3`) repository.
 - **Executed Steps**:
   1. Deterministic generation of the release bundle and `SHA-256` hashes (`bun scripts/release.mjs`).
   2. POSIX syntax validation of the installer (`sh -n install.sh`).
@@ -25,8 +25,8 @@ This document describes the verification scripts and test suites of the `4w-cli`
 
 | File | Technical Scope | How to Run |
 | :--- | :--- | :--- |
-| [`tests/update.test.ts`](../tests/update.test.ts) | Tests the semantic version comparator ([`compareSemver`](../src/help.ts)), repository release discovery ([`fetchLatestVersion`](../src/commands.ts)), `4w update --check`, in-place update execution via the verified installer, rollback on failure, `--force` override, and update help topics. | `bun test tests/update.test.ts` |
-| [`tests/mcp.test.ts`](../tests/mcp.test.ts) | Tests the MCP client ([`FourWords`](../src/commands.ts)), `2025-03-26` stateful and `2026-07-28` 1-RTT stateless negotiation, SSE, pagination, optimistic concurrency (`--base`), default `burn: true` (`--no-burn` to disable), AES-256-GCM encryption (`--encrypt`), direct download (`4w get`), streaming upload (`PUT /api/upload/file`), local vault (`4w history`), and all 15 MCP tools. | `bun test tests/mcp.test.ts` |
+| [`tests/update.test.ts`](../tests/update.test.ts) | Tests the semantic version comparator ([`compareSemver`](../src/help.ts)), repository release discovery ([`fetchLatestVersion`](../src/commands.ts)), `4w update --check`, in-place update execution via the verified installer, tag-pinned download with mandatory minisign signature verification (tampered/unsigned/unknown-key installers abort), HTTPS/loopback validation of `FOURWORDS_UPDATE_URL`/`FOURWORDS_INSTALLER_URL`, rollback on failure, `--force` override, and update help topics. | `bun test tests/update.test.ts` |
+| [`tests/mcp.test.ts`](../tests/mcp.test.ts) | Tests the MCP client ([`FourWords`](../src/commands.ts)), `2025-03-26` stateful and `2026-07-28` 1-RTT stateless negotiation, SSE, pagination, optimistic concurrency (`--base`), default `burn: true` (`--no-burn` to disable), AES-256-GCM encryption (`--encrypt`), direct download (`4w get`), streaming upload (`PUT /api/upload/file`), local vault (`4w history`), key files (`--key-file`, `FOURWORDS_LLM_KEY_FILE`, `--admin-key-file`, `--from-history`), TTY sanitization of `4w get --raw`, and all 15 MCP tools. | `bun test tests/mcp.test.ts` |
 | [`tests/tui.test.ts`](../tests/tui.test.ts) | Tests the contextual help tree, multilingual support (`en` default, `ptbr`, `es`), persistent language selection in `config.json` (`4w lang`), ANSI/VT sanitization ([`textSafe`](../src/tui-model.ts)), secret masking ([`maskSecrets`](../src/tui-model.ts)), and a real interactive pseudoterminal session. | `bun test tests/tui.test.ts` |
 | [`tests/terminal-session.py`](../tests/terminal-session.py) | Python `pty` driver that spawns a real Linux pseudoterminal, navigates the TUI, pastes Unicode via bracketed paste, verifies secret masking, copies via `OSC 52`, resizes the window (`SIGWINCH`), edits collaborative Markdown, and verifies `termios` restoration. | Invoked automatically by `bun test tests/tui.test.ts` |
 | [`tests/lifecycle.sh`](../tests/lifecycle.sh) | Tests the installation lifecycle, `PATH` idempotence, tampered `SHA-256` rejection, concurrency lockfile, and clean uninstallation on Linux/macOS. | `sh tests/lifecycle.sh /path/to/bun-linux-x64.zip` |

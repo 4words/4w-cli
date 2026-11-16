@@ -130,6 +130,7 @@ Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largur
 | `FOURWORDS_ADMIN_KEY` | Chave `fwadm_...` padrão para `4w room moderate`. |
 | `FOURWORDS_TOKEN` | Token Bearer opcional para autorização HTTP. |
 | `FOURWORDS_NO_HISTORY` | Defina como `1` para desativar o registro automático no cofre local de 24h. |
+| `FOURWORDS_LLM_KEY_FILE` | Caminho de um arquivo chmod 600 com a chave `fwllm_...` (também `--key-file`); mantém segredos fora de argv e do ambiente. |
 | `FOURWORDS_NO_UPDATE_CHECK` | Defina como `1` para desativar a verificação periódica de atualizações. |
 
 ## Atualizar ou remover
@@ -143,6 +144,13 @@ Execute `4w update` para verificar atualizações e atualizar o `4w` diretamente
 4w update           # Baixa e aplica a atualização
 4w update --force   # Força a reinstalação mesmo se já estiver na versão mais recente
 ```
+
+Modelo de segurança do `4w update`:
+
+- Com um TTY anexado, o `4w` consulta `raw.githubusercontent.com` por nova versão no máximo 1 vez por dia (cache em `config.json`). Defina `FOURWORDS_NO_UPDATE_CHECK=1` para desligar a checagem (recomendado em usos embutidos, como widgets de desktop).
+- A atualização baixa o instalador da tag imutável `v<versão>`, nunca de um branch, e verifica uma assinatura Ed25519 compatível com minisign (`install.sh.minisig`) contra a chave pública embutida no binário **antes** de gravar ou executar qualquer coisa. Instalador adulterado ou sem assinatura aborta a atualização.
+- Humanos podem verificar os releases com o [minisign](https://jedisct1.github.io/minisign/): `minisign -Vm install.sh -p minisign.pub`.
+- A assinatura protege o `4w update`; o primeiro `curl | sh` ainda confia no TLS do GitHub, então confira o `minisign.pub` por outro canal se o seu modelo de ameaça exigir.
 
 ### Desinstalação
 
@@ -170,7 +178,9 @@ sh -n install.sh
 sh test_scripts/run_all_verifications.sh
 ```
 
-Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.2/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.2\cli.ts`.
+Todo release é assinado: crie a chave uma vez com `bun scripts/keygen.mjs` (a privada fica fora do repositório), exporte `FOURWORDS_SIGNING_KEY` antes de `bun scripts/release.mjs` e então faça commit e push da tag `v<versão>` — o `4w update` baixa os instaladores dessa tag.
+
+Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.3/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.3\cli.ts`.
 
 | Ambiente | Carregamento |
 | --- | --- |

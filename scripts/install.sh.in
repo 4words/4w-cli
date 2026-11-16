@@ -6,7 +6,7 @@ fourwords_install() (
     version='@VERSION@'
     source_sha='@SOURCE_SHA@'
     bun_version='1.4.4'
-    release='https://raw.githubusercontent.com/4words/4w-cli/main'
+    release='https://raw.githubusercontent.com/4words/4w-cli/v@VERSION@'
     action=install
     local_source=''
     local_bun=''

@@ -2,12 +2,16 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { minisignSignature } from "../scripts/sign.mjs";
 import { compareSemver, help, helpTopic, VERSION } from "../src/help";
 
 const cli = new URL("../src/cli.ts", import.meta.url).pathname;
 let directory: string;
 let server: ReturnType<typeof Bun.serve>;
 let servedVersion = "0.4.0";
+let installerBody: string | undefined;
+let installerSig: string | undefined;
 
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), "4w-update-test-"));
@@ -18,6 +22,12 @@ beforeAll(async () => {
       const url = new URL(request.url);
       if (url.pathname === "/package.json") {
         return Response.json({ name: "4w-cli", version: servedVersion });
+      }
+      if (url.pathname === "/install.sh" && installerBody !== undefined) {
+        return new Response(installerBody, { headers: { "Content-Type": "text/x-shellscript" } });
+      }
+      if (url.pathname === "/install.sh.minisig" && installerSig !== undefined) {
+        return new Response(installerSig, { headers: { "Content-Type": "text/plain" } });
       }
       return new Response("Not found", { status: 404 });
     },
@@ -137,4 +147,51 @@ test("4w update rejeita URLs de atualização e instalador sem HTTPS fora do loo
   const missingScript = await run(["update", "--force"], { FOURWORDS_INSTALLER_SCRIPT: join(directory, "nao-existe.sh") });
   expect(missingScript.code).toBe(1);
   expect(missingScript.err).toContain("FOURWORDS_INSTALLER_SCRIPT");
+});
+
+function ephemeralReleaseKey() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const keyId = randomBytes(8);
+  const rawPub = Buffer.from((publicKey.export({ format: "jwk" }) as { x: string }).x, "base64url");
+  const pubBlob = Buffer.concat([Buffer.from("Ed"), keyId, rawPub]).toString("base64");
+  return { key: { keyId, privateKey }, pubBlob };
+}
+
+test("4w update baixa o instalador da tag, verifica a assinatura minisign e só então executa", async () => {
+  servedVersion = "1.0.0";
+  const { key, pubBlob } = ephemeralReleaseKey();
+  installerBody = "#!/bin/sh\necho 'signed install ok'\nexit 0\n";
+  installerSig = minisignSignature(Buffer.from(installerBody), "install.sh", key);
+  const env = {
+    FOURWORDS_INSTALLER_URL: `${server.url.origin}/install.sh`,
+    FOURWORDS_UPDATE_PUBKEY: pubBlob,
+  };
+
+  const ok = await run(["update"], env);
+  expect(ok.code).toBe(0);
+  const data = JSON.parse(ok.out);
+  expect(data.ok).toBe(true);
+  expect(data.output).toContain("signed install ok");
+
+  // Tampered content: signature stays, one byte changes.
+  installerBody = "#!/bin/sh\necho 'signed install ok '\nexit 0\n";
+  const tampered = await run(["update"], env);
+  expect(tampered.code).toBe(1);
+  expect(tampered.err).toContain("signature");
+
+  // Signature from an unknown key.
+  const outro = ephemeralReleaseKey();
+  installerBody = "#!/bin/sh\necho 'signed install ok'\nexit 0\n";
+  installerSig = minisignSignature(Buffer.from(installerBody), "install.sh", outro.key);
+  const wrongKey = await run(["update"], env);
+  expect(wrongKey.code).toBe(1);
+  expect(wrongKey.err).toContain("signature");
+
+  // Missing .minisig file.
+  installerSig = undefined;
+  const missing = await run(["update"], env);
+  expect(missing.code).toBe(1);
+  expect(missing.err).toContain("signature");
+
+  installerBody = undefined;
 });

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export const VERSION = "0.3.2";
+export const VERSION = "0.3.3";
 export const SITE = "https://4words.aletheia.land";
 export const REPO = "https://github.com/4words/4w-cli";
 

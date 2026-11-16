@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
+import { cliCommand } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,32 +90,32 @@ test("4w sem TTY imprime ajuda em inglês por padrão e lembra idioma salvo via 
     delete baseEnv.FOURWORDS_LANG;
 
     // 1. Default without config is English (en)
-    const p1 = Bun.spawn([process.execPath, cli], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const p1 = Bun.spawn([...cliCommand], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const [code1, stdout1] = await Promise.all([p1.exited, p1.stdout.text()]);
     expect(code1).toBe(0);
     expect(stdout1).toContain("Open the interactive panel");
     expect(stdout1).not.toContain("\x1b");
 
     // 2. Change and save language to ptbr via `4w lang ptbr`
-    const p2 = Bun.spawn([process.execPath, cli, "lang", "ptbr"], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const p2 = Bun.spawn([...cliCommand, "lang", "ptbr"], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const [code2, stdout2] = await Promise.all([p2.exited, p2.stdout.text()]);
     expect(code2).toBe(0);
     expect(JSON.parse(stdout2)).toMatchObject({ ok: true, lang: "ptbr", saved: true });
 
     // 3. Subsequent invocation without FOURWORDS_LANG remembers ptbr from config.json
-    const p3 = Bun.spawn([process.execPath, cli], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const p3 = Bun.spawn([...cliCommand], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const [code3, stdout3] = await Promise.all([p3.exited, p3.stdout.text()]);
     expect(code3).toBe(0);
     expect(stdout3).toContain("Abre o painel interativo");
 
     // 4. Change and save language to es via `4w lang es`
-    const p4 = Bun.spawn([process.execPath, cli, "lang", "es"], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const p4 = Bun.spawn([...cliCommand, "lang", "es"], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const [code4, stdout4] = await Promise.all([p4.exited, p4.stdout.text()]);
     expect(code4).toBe(0);
     expect(JSON.parse(stdout4)).toMatchObject({ ok: true, lang: "es", saved: true });
 
     // 5. Subsequent invocation remembers es from config.json
-    const p5 = Bun.spawn([process.execPath, cli], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const p5 = Bun.spawn([...cliCommand], { env: baseEnv, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const [code5, stdout5] = await Promise.all([p5.exited, p5.stdout.text()]);
     expect(code5).toBe(0);
     expect(stdout5).toContain("Abre el panel interactivo");
@@ -148,7 +149,7 @@ test.skipIf(process.platform !== "linux" || !Bun.which("python3"))(
       },
     });
     try {
-      const command = process.env.FOURWORDS_TEST_BIN ? [process.env.FOURWORDS_TEST_BIN] : [process.execPath, cli];
+      const command = cliCommand;
       const p = Bun.spawn(["python3", terminalSession, ...command], {
         env: { ...process.env, FOURWORDS_MCP_URL: server.url.href, FOURWORDS_NO_HISTORY: "1", FOURWORDS_LANG: "ptbr" },
         stdout: "pipe", stderr: "pipe",

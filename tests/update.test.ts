@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cliCommand } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
@@ -47,7 +48,7 @@ async function run(args: string[], extraEnv: Record<string, string> = {}) {
     FOURWORDS_NO_UPDATE_CHECK: "1",
     ...extraEnv,
   };
-  const p = Bun.spawn([process.execPath, cli, ...args], {
+  const p = Bun.spawn([...cliCommand, ...args], {
     env,
     stdin: "ignore",
     stdout: "pipe",

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cliCommand } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -97,7 +98,7 @@ async function run(args: string[], input?: string, extraEnv: Record<string, stri
     ...extraEnv,
   };
   if (!extraEnv.FOURWORDS_LANG) delete env.FOURWORDS_LANG;
-  const p = Bun.spawn([process.execPath, cli, ...args], {
+  const p = Bun.spawn([...cliCommand, ...args], {
     env: env as Record<string, string>,
     stdin: input === undefined ? "ignore" : new Blob([input]), stdout: "pipe", stderr: "pipe",
   });
@@ -346,7 +347,7 @@ test.skipIf(process.platform !== "linux" || !Bun.which("python3"))(
     };
     delete env.FOURWORDS_LANG;
     const spawnPty = (...args: string[]) => Bun.spawn(
-      ["python3", "-c", ptyRunner, process.execPath, cli, ...args],
+      ["python3", "-c", ptyRunner, ...cliCommand, ...args],
       { env, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
     );
 

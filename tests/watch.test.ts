@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cliCommand } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -61,7 +62,7 @@ afterEach(async () => {
 async function startWatch(server: ReturnType<typeof Bun.serve>, extra: string[] = [], env: Record<string, string> = {}) {
   const dir = await mkdtemp(join(tmpdir(), "4w-watch-test-"));
   cleanup.push(() => rm(dir, { recursive: true, force: true }));
-  const proc = Bun.spawn([process.execPath, cli, "room", "watch", "lua-gato-sol-rio-123456789", "--jsonl", ...extra], {
+  const proc = Bun.spawn([...cliCommand, "room", "watch", "lua-gato-sol-rio-123456789", "--jsonl", ...extra], {
     env: {
       ...process.env as Record<string, string>,
       FOURWORDS_MCP_URL: server.url.href,
@@ -185,7 +186,7 @@ test("room watch exige exatamente uma sala e valida --since", async () => {
   const { server } = mockRoom([]);
   cleanup.push(() => { server.stop(true); });
   const run = async (...args: string[]) => {
-    const p = Bun.spawn([process.execPath, cli, "room", "watch", ...args], {
+    const p = Bun.spawn([...cliCommand, "room", "watch", ...args], {
       env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: server.url.href, FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_NO_HISTORY: "1" },
       stdin: "ignore", stdout: "pipe", stderr: "pipe",
     });
@@ -235,7 +236,7 @@ test.skipIf(process.platform === "win32" || typeof (Bun as { Terminal?: unknown 
       },
     });
     let screen = "";
-    const proc = Bun.spawn([process.execPath, cli, "room", "watch", "lua-gato-sol-rio-123456789"], {
+    const proc = Bun.spawn([...cliCommand, "room", "watch", "lua-gato-sol-rio-123456789"], {
       env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: server.url.href, FOURWORDS_NO_HISTORY: "1",
         FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", TERM: "xterm-256color" },
       terminal: { cols: 100, rows: 28, data(_t: unknown, data: Uint8Array) { screen += Buffer.from(data).toString(); } },

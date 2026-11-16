@@ -113,3 +113,6 @@ $RECYCLE.BIN/
 *.swo
 *.swn
 *~
+
+# Rust
+/target/

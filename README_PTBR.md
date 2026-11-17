@@ -2,181 +2,118 @@
 
 **Idioma:** [English](README.md) | Português (Brasil)
 
-Cliente oficial de linha de comando (CLI) e painel interativo (TUI) do [FourWords](https://4words.aletheia.land) para compartilhar texto e arquivos com links de quatro palavras, criptografar conteúdos localmente com `AES-256-GCM` Zero-Knowledge, colaborar em salas em tempo real e operar todas as 15 ferramentas MCP em automações e agentes de IA.
+Cliente oficial do [FourWords](https://4words.aletheia.land): compartilhe texto e arquivos com links de quatro palavras, criptografe no cliente e **faça uma sala de colaboração inteira sem sair do terminal** — chat ao vivo, quem está online (pessoas e agentes de IA), um documento Markdown compartilhado com editor, histórico e rollback, arquivos e moderação. Um único binário estático e pequeno, sem runtime para instalar.
 
 ```text
-4w                 abre o painel interativo (TUI)
-4w --help          lista todos os comandos
-4w lang ptbr       altera e salva o idioma nesta máquina (en, ptbr, es)
-4w doctor          verifica a conexão e o catálogo MCP
+4w                     abre o início: nova sala, abrir sala, salas recentes, compartilhar, ferramentas
+4w room create         cria uma sala e abre o espaço de trabalho
+4w room open LINK      abre qualquer sala (link ou código de quatro palavras)
+4w text "olá"          publica texto e devolve um link de quatro palavras
+4w --help              todos os comandos; 4w help room watch para detalhes
 ```
 
 ## Instalar
 
-**Linux & macOS** · Ubuntu, Debian, Fedora, Arch, distros glibc e macOS (`x64` ou Apple Silicon `arm64`). Requer `curl`, `unzip` e `sha256sum` (ou `shasum` no macOS).
+Um único binário pré-compilado (cerca de 4 MB), verificado por SHA-256; o próprio instalador é assinado.
+
+**Linux, macOS, Termux** · `x64` e `arm64`. Precisa de `curl` e `sha256sum` (ou `shasum`).
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 ```
 
-**Alpine** · Em instalações mínimas, execute a instalação das dependências com permissão para usar `apk`.
-
-```sh
-apk add --no-cache curl unzip libstdc++ libgcc && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
-```
-
-**NixOS** · Use a linha do Linux. Se `curl` ou `unzip` estiverem ausentes, disponibilize-os para a sessão de instalação.
-
-```sh
-nix --extra-experimental-features 'nix-command flakes' shell nixpkgs#curl nixpkgs#unzip -c sh -c 'curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh'
-```
-
-**Termux** · Use Termux e Android de 64 bits, no armazenamento interno do app.
-
-```sh
-pkg install -y curl unzip && curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
-```
-
-**Windows PowerShell** · Windows 10 1809 ou posterior em x64, ou Windows em ARM64. A instalação usa o perfil atual.
+**Windows PowerShell** · Windows 10 1809+; `x64` (e `ARM64` pela emulação do Windows).
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1)))
 ```
 
-O instalador executa sete etapas: detecta a plataforma, baixa a fonte versionada e o Bun oficial (`1.4.4`), verifica o `SHA-256` dos dois artefatos, compila o executável único, roda um autoteste (`--self-test`) e ativa o binário no perfil do usuário. Se o repositório estiver privado durante testes, exporte `GITHUB_TOKEN` antes de executar o instalador.
+Atualize com `4w update` (`--check` só consulta). Remova tudo (executável, entradas de PATH, cofre local e configurações) com `4w uninstall --yes`, ou pelo painel inicial em **Atualizar / Remover**; `sh install.sh --uninstall` também funciona.
+Os binários são estáticos (musl no Linux): rodam em Alpine, NixOS e Termux sem ajustes.
 
-## Painel interativo (TUI)
+## O espaço de trabalho da sala
 
-Execute `4w` ou `4w tui` em um terminal interativo. O painel se adapta à largura da janela e usa um layout compacto em telas menores. `NO_COLOR=1` desativa a paleta mantendo a indicação do campo ativo.
+`4w room create` (ou **Nova sala** no início) abre a sala completa. Abra uma existente com `4w room open LINK`. Ele se adapta à janela: três painéis em terminais largos, dois painéis com faixa de pessoas nos médios e abas nos estreitos (até 26×8).
 
-> **Política Padrão de Leitura Única (`Burn ON`):** A leitura única (`--burn`) vem **ativada (`ON`) por padrão** em todas as publicações de `text`, `file` e `room send-file`. Para manter o link disponível pelas 24 horas sem queimar na primeira leitura, desmarque a opção com `Espaço` no painel ou passe `--no-burn` na linha de comando.
-
-| Seção | O que você pode fazer |
+| Você pode | Como |
 | --- | --- |
-| **Publicar** | Publicar texto/Markdown ou arquivo (até 24 MiB via MCP ou até 1 GiB via streaming), leitura única ativada por padrão (`ON`), criptografia local Zero-Knowledge (`--encrypt`), abrir/baixar links de 4 palavras e destruir conteúdos com `delete_url`. |
-| **Salas** | Criar ou entrar em salas, ler e enviar mensagens/arquivos, consultar e editar o Markdown colaborativo com controle de concorrência (`--base`), escutar eventos em tempo real (`wait`), listar participantes, sortear apelido, autenticar agentes LLM e moderar com `admin_key`. |
-| **Ferramentas & MCP** | Consultar o cofre local de 24h (`history`), inspecionar o catálogo ao vivo de ferramentas MCP, testar o diagnóstico da conexão (`doctor`) e trocar/salvar o idioma da interface (`en`, `ptbr`, `es`). |
-| **Resultados** | Rolar a resposta, copiar o link público (`Y`), exibir credenciais sob demanda (`V`), abrir o Markdown retornado para edição (`E`) ou destruir imediatamente o item publicado (`D`). |
+| Conversar | digite, `Enter` envia, `Alt+Enter` quebra linha, `↑` recupera mensagens enviadas, `@` completa nomes |
+| Ver quem está online | painel de pessoas: humanos primeiro, agentes depois, com status ao vivo como `◐ bia [IA] trabalhando` |
+| Ler o documento compartilhado | Markdown renderizado (títulos, listas, tarefas, tabelas, código), atualizações ao vivo com `+N −M por quem` |
+| Editar o documento | `F2`: editor completo com quebra suave, números de linha, desfazer/refazer, prévia em `Ctrl+T`, `Ctrl+S` salva com segurança |
+| Resolver conflitos | se alguém salvou antes: usar o dele, sobrescrever com o seu, salvar o seu em arquivo ou ver o diff |
+| Histórico e rollback | `F3`: cada revisão com diff colorido; `R` restaura uma sem perder histórico; exporte um link de 24 h |
+| Enviar e receber arquivos | `F4` com completar caminho e progresso (direto até 24 MiB, em streaming acima); liste e baixe em `Arquivos` |
+| Compartilhar | `F5`: link da sala, chave de agente e chave de admin (mascaradas até você revelar), copie com `Y` |
+| Moderar | `F6` quando você é dono da sala: listar, banir e desbanir |
+| Buscar no chat | `/search texto` ou `Ctrl+P` → *Buscar no chat* |
+| Todo o resto | paleta `Ctrl+P` · ajuda `F1` · idioma `Ctrl+L` · tema `Ctrl+T` · roda do mouse e cliques |
+| Copiar o link da sala | clique no link no cabeçalho (ou `Ctrl+Y`) |
+| Sair | `Esc` desmarca todos os painéis; `Esc` de novo pergunta se quer sair da sala |
 
-| Tecla | Ação |
-| --- | --- |
-| Setas ou `j` / `k`, `Enter` | Selecionar e abrir. |
-| `L` | Alternar e salvar o idioma da interface nesta máquina (`EN` $\to$ `PTBR` $\to$ `ES`). |
-| `Tab` / `Shift+Tab` | Mudar de campo ou alcançar o botão **Continuar**. |
-| `Espaço` | Alternar controles de opção (leitura única, streaming, criptografia). |
-| `F2` ou `Ctrl+S` | Continuar. Operações de escrita pedem confirmação. |
-| `F1` | Abrir a ajuda do formulário ou o esquema da ferramenta MCP. |
-| `?` | Abrir o guia de teclas no menu principal. |
-| `V` | Exibir ou ocultar credenciais da resposta. |
-| `Y` | Solicitar cópia do link via OSC 52, quando aceito pelo terminal. |
-| `E` | Editar o Markdown da revisão exibida. |
-| `D` | Destruir imediatamente o conteúdo exibido usando sua `delete_url`. |
-| `Esc` / `Ctrl+C` | Voltar ou cancelar a espera / sair do painel. |
+Comandos de barra na caixa de mensagem: `/help /edit /history /file CAMINHO /files /share /mod /nick /copy /search /lang /theme /reveal /quit`.
 
-## Comandos e ajuda
+As atualizações usam um fluxo do servidor (SSE) com queda automática para long-polling e reconexão exponencial; o cabeçalho mostra `● ao vivo`, `reconectando em 4s` ou `sala indisponível`. As salas duram 24 horas.
+
+Modo dono: as salas que você cria guardam a chave de admin no cofre local (24 h), então a moderação já vem ativa. Em outras salas use `--admin-key-file ARQUIVO`.
+
+Opções de `room watch` / `room open`: `--nick`, `--llm-key | --key-file | --from-history`, `--llm-name`, `--admin-key-file`, `--since N`, `--transport auto|sse|poll`, `--no-mouse`, `--jsonl`. As cores seguem o seu terminal; há `NO_COLOR=1`, `FOURWORDS_THEME=light|contrast|mono` e `FOURWORDS_ASCII=1` (sem símbolos Unicode). Use `FOURWORDS_BELL=1` para apitar em menções.
+
+## Scripts e agentes
+
+Todo comando imprime JSON no stdout e erros no stderr (código de saída 1). Sem terminal, `room create` e `room watch` fazem o mesmo:
 
 ```sh
-4w --help
-4w text --help
-4w help room wait
-4w mcp call --help
-
-# Idioma e Persistência na Máquina (Padrão: en)
-4w lang                  # Mostra o idioma atual e o salvo
-4w lang ptbr             # Altera para Português (Brasil) e deixa salvo na máquina
-4w lang es               # Altera para Espanhol e deixa salvo na máquina
-4w lang en               # Volta para Inglês e deixa salvo na máquina
-
-# Publicação, Criptografia Zero-Knowledge, Download e Destruição
-# Nota: Leitura única (--burn) é ON por padrão; use --no-burn para reter por 24h.
-4w text "Olá, FourWords!"
-4w text --file notas.md --no-burn
-4w text --file segredo.md --encrypt
-4w file "relatório final.pdf"
-4w file backup-grande.zip --stream --no-burn
+4w text "Olá" --no-burn                       # leitura única LIGADA por padrão
+4w text --file notas.md --encrypt             # AES-256-GCM, chave só no fragmento #key=
+4w file relatorio.pdf --stream                # até 1 GiB
 4w get lua-gato-sol-rio-123456789 --raw
-4w get "https://4words.aletheia.land/lua-gato-sol-rio-123456789#key=..." --output decifrado.md
-4w delete "https://4words.aletheia.land/d/..."
-4w history
+4w delete https://4words.aletheia.land/d/...  # delete_url secreto
+4w history                                    # cofre local de 24 h (--clear)
 
-# Salas Colaborativas (Humanos & Agentes LLM)
-4w room create --doc pauta.md --message "Bem-vindos"
-4w room join "$SALA"
-4w room messages "$SALA" --since 0
-4w room send "$SALA" "Começamos em cinco minutos."
-4w room send-file "$SALA" diagrama.png --text "Arquitetura atual"
-4w room doc "$SALA"
-4w room save "$SALA" revisado.md --base 1780000000000
-4w room save "$SALA" --rollback-version 1
-4w room wait "$SALA" --since 0 --timeout 20
-4w room participants "$SALA"
-4w room nick "$SALA"
-4w room register-llm "$SALA" --llm-key "$LLM_KEY" --llm-name claude
-4w room moderate "$SALA" list --admin-key "$ADMIN_KEY"
-
-# Introspecção e Chamada Direta MCP
-4w mcp list
-4w mcp call chat_participants - < argumentos.json
+4w room create --json --doc pauta.md --message "Bem-vindos"
+4w room join|messages|send|send-file|doc|save|wait|participants|nick|register-llm|moderate SALA ...
+4w room watch SALA --jsonl                    # um evento JSON por linha (mensagens, pessoas, doc, status)
+4w mcp list ; 4w mcp call FERRAMENTA '{"k":"v"}'   # as 15 ferramentas MCP
+4w doctor                                     # conectividade e descoberta de ferramentas
 ```
 
-### Variáveis de Ambiente
+`SALA` aceita o link da sala ou o código de quatro palavras. Mantenha chaves fora do argv e do ambiente com `--key-file ARQUIVO` / `--admin-key-file ARQUIVO` (o arquivo deve ser `chmod 600`).
 
-| Variável | Descrição |
+### Ambiente
+
+| Variável | Função |
 | --- | --- |
-| `FOURWORDS_MCP_URL` | Endpoint MCP customizado (HTTPS ou HTTP em loopback). Padrão: `https://4words.aletheia.land/mcp`. |
-| `FOURWORDS_LANG` | Sobrescreve o idioma para o processo atual (`en`, `ptbr`, `es`). Padrão: idioma salvo ou `en`. |
-| `FOURWORDS_LLM_KEY` | Chave `fwllm_...` padrão para autenticar comandos `4w room *` como agente LLM. |
-| `FOURWORDS_LLM_NAME` | Identificador curto do agente LLM (ex.: `claude`, `gemini`, `cursor`). |
-| `FOURWORDS_ADMIN_KEY` | Chave `fwadm_...` padrão para `4w room moderate`. |
-| `FOURWORDS_TOKEN` | Token Bearer opcional para autorização HTTP. |
-| `FOURWORDS_NO_HISTORY` | Defina como `1` para desativar o registro automático no cofre local de 24h. |
-| `FOURWORDS_NO_UPDATE_CHECK` | Defina como `1` para desativar a verificação periódica de atualizações. |
+| `FOURWORDS_MCP_URL` | Endpoint MCP (HTTPS, ou HTTP em loopback). Padrão `https://4words.aletheia.land/mcp` |
+| `FOURWORDS_LANG` | `en`, `ptbr` ou `es` neste processo; `4w lang ptbr` salva |
+| `FOURWORDS_LLM_KEY` / `_FILE` / `FOURWORDS_LLM_NAME` | identidade de agente para `4w room *` |
+| `FOURWORDS_ADMIN_KEY` | chave de dono para `room moderate` / o espaço de trabalho |
+| `FOURWORDS_NOTIFY_KEY`, `--notify MD5` | `notify_key` de Web Push repassada ao serviço |
+| `FOURWORDS_TOKEN` | token Bearer opcional |
+| `FOURWORDS_NO_HISTORY=1` | não grava o cofre local |
+| `FOURWORDS_NO_UPDATE_CHECK=1` | desliga a checagem diária de versão (consulta `raw.githubusercontent.com` em terminal) |
+| `FOURWORDS_OSC52=1` | permite copiar pelo terminal (OSC 52) quando não há ferramenta de área de transferência |
 
-## Atualizar ou remover
+## Segurança
 
-### Atualização direta
+- **Texto remoto não é confiável.** Nomes, mensagens e documentos são sanitizados na chegada: sequências de escape de terminal e sobreposições bidirecionais viram `�`, então ninguém injeta comandos no seu terminal. `4w get --raw` faz o mesmo em terminal.
+- **Segredos mascarados** na tela (`fwadm_…`, `fwllm_…`, links de exclusão) até você pedir para revelar.
+- **Rede:** só HTTPS ou loopback, sem credenciais em URLs, redirecionamentos recusados, tamanho de resposta limitado, raízes de certificado embutidas no binário.
+- **Arquivos:** `history.json` e `config.json` ficam em `0600` num diretório `0700`; arquivos de chave legíveis por outros usuários são recusados.
+- **Área de transferência:** primeiro uma ferramenta nativa (`wl-copy`, `xclip`, `xsel`, `pbcopy`, `clip.exe`, `termux-clipboard-set`); OSC 52 só sob pedido ou via SSH.
+- **Atualizações verificadas:** `4w update` baixa o instalador da tag da release e confere a assinatura Ed25519 com a chave embutida no binário (`minisign.pub`; confira à mão com `minisign -Vm install.sh -p minisign.pub`) antes de executar qualquer coisa. A primeira instalação por `curl | sh` ainda confia no TLS do GitHub.
 
-Execute `4w update` para verificar atualizações e atualizar o `4w` diretamente:
+## Desenvolver
 
-```sh
-4w update --check   # Consulta se há versão mais recente sem alterar arquivos
-4w update           # Baixa e aplica a atualização
-4w update --force   # Força a reinstalação mesmo se já estiver na versão mais recente
-```
-
-### Desinstalação
-
-Linux, macOS e Termux:
+Rust 1.99 (`rust-toolchain.toml`), crates em `crates/`: `fw-core` (cliente MCP, cripto, sanitização), `fw-room` (motor de sincronização), `fw-tui` (telas em Ratatui) e `fw-cli` (o binário `4w`).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh -s -- --uninstall
+cargo test --workspace            # testes unitários, do motor e de renderização
+cargo clippy --workspace --all-targets -- -D warnings
+cargo build --release -p fw-cli
+FOURWORDS_TEST_BIN=target/release/4w bun test   # suítes de conformidade e de terminal ponta a ponta
 ```
 
-Windows PowerShell:
+Releases: veja [docs/RELEASING.md](docs/RELEASING.md). Decisões de projeto: [docs/ADR-0001-rust-rewrite.md](docs/ADR-0001-rust-rewrite.md).
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1))) -Uninstall
-```
-
-## Desenvolvimento e distribuição
-
-Use [Bun 1.4.4](https://github.com/oven-sh/bun/releases/tag/bun-v1.4.4).
-
-```sh
-bun src/cli.ts --help
-bun test
-bun scripts/release.mjs
-sh -n install.sh
-sh test_scripts/run_all_verifications.sh
-```
-
-Para instalar de um checkout local, rode `sh install.sh --source releases/0.3.2/cli.ts`. Em PowerShell, use `& .\install.ps1 -Source .\releases\0.3.2\cli.ts`.
-
-| Ambiente | Carregamento |
-| --- | --- |
-| Linux glibc | Bun Linux oficial (`x64` / `aarch64`). |
-| macOS (`Darwin`) | Bun Darwin oficial (`x64` / Apple Silicon `aarch64`). |
-| Alpine | Bun musl e bibliotecas C++ do Alpine. |
-| NixOS | Bun Linux oficial e lançador que aponta para a `glibc.out` do Nix store. |
-| Termux | Bun Android Bionic oficial. |
-| Windows | Bun Windows oficial e executável `4w.exe`. |
+A implementação em TypeScript que precedeu a 1.0 fica em `src/` por mais uma versão como referência executável da suíte de conformidade (`bun test` a executa); ela não é mais distribuída.

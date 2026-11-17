@@ -1,0 +1,76 @@
+name: Release binaries
+
+# Builds the platform binaries for a tag and attaches them to a DRAFT release.
+# Signing stays offline: download dist/, run `bun scripts/release.mjs` with the private key,
+# commit install.sh/install.ps1 (+ .minisig), tag and publish. See docs/RELEASING.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: ${{ matrix.target }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - run: cargo install --locked cargo-zigbuild
+      - run: cargo zigbuild --release --locked -p fw-cli --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=.
+      - run: cp target/${{ matrix.target }}/release/4w 4w-${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with: { name: "4w-${{ matrix.target }}", path: "4w-${{ matrix.target }}" }
+
+  macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --locked -p fw-cli --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=.
+      - run: cp target/${{ matrix.target }}/release/4w 4w-${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with: { name: "4w-${{ matrix.target }}", path: "4w-${{ matrix.target }}" }
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: x86_64-pc-windows-msvc
+      - run: cargo build --release --locked -p fw-cli --target x86_64-pc-windows-msvc
+      - run: Copy-Item target/x86_64-pc-windows-msvc/release/4w.exe 4w-x86_64-pc-windows-msvc.exe
+      - uses: actions/upload-artifact@v4
+        with: { name: "4w-x86_64-pc-windows-msvc.exe", path: "4w-x86_64-pc-windows-msvc.exe" }
+
+  draft-release:
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: dist/*

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export const VERSION = "0.3.2";
+export const VERSION = "1.0.0";
 export const SITE = "https://4words.aletheia.land";
 export const REPO = "https://github.com/4words/4w-cli";
 
@@ -144,7 +144,7 @@ const topicsPt = {
   },
   room: {
     label: "Trabalhar em salas",
-    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|participants|nick|register-llm|moderate> [ARGUMENTOS]",
+    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|watch|participants|nick|register-llm|moderate> [ARGUMENTOS]",
     details: "SALA aceita uma URL de sala ou seu código de quatro palavras e nove dígitos. Consulte os tópicos abaixo para argumentos e exemplos.",
     examples: ["4w room create", "4w help room save", "4w help room wait"],
   },
@@ -196,6 +196,12 @@ const topicsPt = {
     details: "Realiza long-polling aguardando novas mensagens, menções @apelido ou edições no documento Markdown colaborativo. Use --all para receber todas as mensagens mesmo quando autenticado com --llm-key.",
     examples: ['4w room wait "$SALA" --since 0 --timeout 20', '4w room wait "$SALA" --llm-key "$LLM_KEY" --llm-name claude'],
   },
+  "room watch": {
+    label: "Painel ao vivo da sala",
+    usage: "4w room watch SALA [--nick APELIDO] [--llm-key CHAVE | --key-file ARQUIVO | --from-history] [--llm-name NOME] [--since N] [--mouse] [--jsonl]",
+    details: "Abre um painel contínuo da sala: mensagens em tempo real, presença, aviso de edição do documento e campo de envio. Enter envia, PgUp/PgDn rolam, Ctrl+D mostra o documento, Ctrl+R revela credenciais e Ctrl+Y copia o link. --mouse ativa a roda do mouse (desativa a seleção de texto do terminal). Sem TTY, ou com --jsonl, emite um objeto JSON por linha para scripts e agentes.",
+    examples: ['4w room watch "$SALA"', '4w room watch "$SALA" --key-file ~/.config/4w/llm.key --mouse', '4w room watch "$SALA" --jsonl | head'],
+  },
   "room participants": {
     label: "Listar participantes ativos",
     usage: "4w room participants SALA [--llm-key CHAVE] [--llm-name NOME]",
@@ -210,7 +216,7 @@ const topicsPt = {
   },
   "room register-llm": {
     label: "Registrar agente LLM",
-    usage: "4w room register-llm SALA --llm-key CHAVE [--llm-name NOME]",
+    usage: "4w room register-llm SALA <--llm-key CHAVE | --key-file ARQUIVO | --from-history> [--llm-name NOME]",
     details: "Autentica um agente de IA usando a llm_key da sala para exibir o selo dourado de LLM e receber eventos.",
     examples: ['4w room register-llm "$SALA" --llm-key "$LLM_KEY" --llm-name claude'],
   },
@@ -299,7 +305,7 @@ const topicsEn: Record<Topic, TopicEntry> = {
   },
   room: {
     label: "Collaborate in rooms",
-    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|participants|nick|register-llm|moderate> [ARGS]",
+    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|watch|participants|nick|register-llm|moderate> [ARGS]",
     details: "ROOM accepts a room URL or its four-word + nine-digit code. See subcommands below for details.",
     examples: ["4w room create", "4w help room save", "4w help room wait"],
   },
@@ -351,6 +357,12 @@ const topicsEn: Record<Topic, TopicEntry> = {
     details: "Long-polls for new messages, @mentions or collaborative Markdown edits.",
     examples: ['4w room wait "$ROOM" --since 0 --timeout 20'],
   },
+  "room watch": {
+    label: "Live room panel",
+    usage: "4w room watch ROOM [--nick NICK] [--llm-key KEY | --key-file FILE | --from-history] [--llm-name NAME] [--since N] [--mouse] [--jsonl]",
+    details: "Opens a continuous room panel: live messages, presence, document-edit markers and a send field. Enter sends, PgUp/PgDn scroll, Ctrl+D shows the document, Ctrl+R reveals credentials and Ctrl+Y copies the link. --mouse enables the mouse wheel (it disables native terminal text selection). Without a TTY, or with --jsonl, it prints one JSON object per line for scripts and agents.",
+    examples: ['4w room watch "$ROOM"', '4w room watch "$ROOM" --key-file ~/.config/4w/llm.key --mouse', '4w room watch "$ROOM" --jsonl | head'],
+  },
   "room participants": {
     label: "List active participants",
     usage: "4w room participants ROOM [--llm-key KEY] [--llm-name NAME]",
@@ -365,7 +377,7 @@ const topicsEn: Record<Topic, TopicEntry> = {
   },
   "room register-llm": {
     label: "Register LLM agent",
-    usage: "4w room register-llm ROOM --llm-key KEY [--llm-name NAME]",
+    usage: "4w room register-llm ROOM <--llm-key KEY | --key-file FILE | --from-history> [--llm-name NAME]",
     details: "Authenticates with the room llm_key to appear as a golden LLM agent.",
     examples: ['4w room register-llm "$ROOM" --llm-key "$LLM_KEY" --llm-name claude'],
   },
@@ -452,7 +464,7 @@ const topicsEs: Record<Topic, TopicEntry> = {
   },
   room: {
     label: "Colaborar en salas",
-    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|participants|nick|register-llm|moderate> [ARGUMENTOS]",
+    usage: "4w room <create|join|send|send-file|messages|doc|save|wait|watch|participants|nick|register-llm|moderate> [ARGUMENTOS]",
     details: "SALA acepta una URL de sala o su código de cuatro palabras y nueve dígitos.",
     examples: ["4w room create", "4w help room save", "4w help room wait"],
   },
@@ -503,6 +515,12 @@ const topicsEs: Record<Topic, TopicEntry> = {
     usage: "4w room wait SALA [--since N] [--since-doc TS] [--timeout SEGUNDOS] [--all] [--nick APODO] [--llm-key CLAVE] [--llm-name NOMBRE]",
     details: "Realiza long-polling esperando nuevos mensajes, menciones @apodo o ediciones en el Markdown.",
     examples: ['4w room wait "$SALA" --since 0 --timeout 20'],
+  },
+  "room watch": {
+    label: "Panel en vivo de la sala",
+    usage: "4w room watch SALA [--nick APODO] [--llm-key CLAVE | --key-file ARCHIVO | --from-history] [--llm-name NOMBRE] [--since N] [--mouse] [--jsonl]",
+    details: "Abre un panel continuo de la sala: mensajes en vivo, presencia, aviso de edición del documento y campo de envío. Enter envía, PgUp/PgDn desplazan, Ctrl+D muestra el documento, Ctrl+R revela credenciales y Ctrl+Y copia el enlace. --mouse activa la rueda del ratón (desactiva la selección de texto de la terminal). Sin TTY, o con --jsonl, emite un objeto JSON por línea para scripts y agentes.",
+    examples: ['4w room watch "$SALA"', '4w room watch "$SALA" --key-file ~/.config/4w/llm.key --mouse', '4w room watch "$SALA" --jsonl | head'],
   },
   "room participants": {
     label: "Listar participantes activos",
@@ -624,6 +642,8 @@ EXAMPLES
 
 ROOM accepts a room URL or its four-word and nine-digit combo.
 FOURWORDS_MCP_URL overrides the MCP endpoint (default ${SITE}/mcp).
+--notify <md5> (or FOURWORDS_NOTIFY_KEY) triggers Web Push alerts via NotificationKeyHub.
+--key-file FILE (or FOURWORDS_LLM_KEY_FILE) reads the fwllm_ key from a chmod-600 file; --from-history reuses the key saved by 4w history.
 Language (default: en) can be persisted via '4w lang <en|ptbr|es>' or overridden via FOURWORDS_LANG.
 Install, update and uninstall   ${REPO}`;
   }
@@ -676,6 +696,8 @@ EJEMPLOS
 
 SALA acepta el enlace de una sala o su código de cuatro palabras y nueve dígitos.
 FOURWORDS_MCP_URL cambia el endpoint MCP (por defecto ${SITE}/mcp).
+--notify <md5> (o FOURWORDS_NOTIFY_KEY) dispara alertas Web Push vía NotificationKeyHub.
+--key-file ARCHIVO (o FOURWORDS_LLM_KEY_FILE) lee la clave fwllm_ desde un archivo chmod 600; --from-history reutiliza la clave guardada por 4w history.
 El idioma (por defecto: en) se guarda con '4w lang <en|ptbr|es>' o con FOURWORDS_LANG.
 Instalación, actualización y eliminación   ${REPO}`;
   }
@@ -727,6 +749,8 @@ EXEMPLOS
 
 SALA aceita o link de uma sala ou o código de quatro palavras e nove dígitos.
 --burn ativa a leitura única. --encrypt aplica criptografia local AES-256-GCM.
+--notify <md5> (ou FOURWORDS_NOTIFY_KEY) dispara notificações Web Push via NotificationKeyHub.
+--key-file ARQUIVO (ou FOURWORDS_LLM_KEY_FILE) lê a chave fwllm_ de um arquivo chmod 600; --from-history reaproveita a chave salva pelo 4w history.
 Resultados e chaves saem em JSON no stdout. Erros vão para stderr com código 1.
 FOURWORDS_MCP_URL altera o endpoint MCP. O padrão é ${SITE}/mcp.
 O idioma (padrão: en) pode ser salvo com '4w lang <en|ptbr|es>' ou definido via FOURWORDS_LANG.

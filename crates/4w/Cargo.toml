@@ -1,0 +1,31 @@
+[package]
+name = "fw-cli"
+description = "FourWords CLI: the `4w` command"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "fw_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "4w"
+path = "src/main.rs"
+
+[dependencies]
+fw-core = { path = "../fw-core" }
+fw-room = { path = "../fw-room" }
+fw-tui = { path = "../fw-tui" }
+base64.workspace = true
+futures-util.workspace = true
+regex-lite.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true

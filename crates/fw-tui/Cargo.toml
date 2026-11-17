@@ -1,0 +1,29 @@
+[package]
+name = "fw-tui"
+description = "FourWords terminal UI built with Ratatui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+fw-core = { path = "../fw-core" }
+fw-room = { path = "../fw-room" }
+base64.workspace = true
+chrono.workspace = true
+pulldown-cmark.workspace = true
+ratatui.workspace = true
+ratatui-textarea.workspace = true
+serde_json.workspace = true
+similar.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+unicode-segmentation.workspace = true
+unicode-width.workspace = true
+reqwest.workspace = true
+futures-util.workspace = true
+
+[dev-dependencies]

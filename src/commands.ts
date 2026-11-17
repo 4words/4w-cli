@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, createPublicKey, verify as cryptoVerify } from "node:crypto";
+import { readFileSync, statSync } from "node:fs";
+import { mkdir, mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { parseArgs } from "node:util";
@@ -59,10 +61,145 @@ function parseNonNegativeInt(raw: string | undefined, flag: string): number | un
   return num;
 }
 
-function llmAuth(values: { "llm-key"?: string; "llm-name"?: string }) {
-  const llm_key = values["llm-key"] ?? process.env.FOURWORDS_LLM_KEY;
+export function readSecretFile(path: string, source: string): string {
+  let info: ReturnType<typeof statSync>;
+  try {
+    info = statSync(path);
+  } catch {
+    throw new Error(tr(
+      `${source}: cannot read ${path}.`,
+      `${source}: não foi possível ler ${path}.`,
+      `${source}: no se pudo leer ${path}.`,
+    ));
+  }
+  if (!info.isFile() || info.size > 512) {
+    throw new Error(tr(
+      `${source} must point to a regular file of at most 512 bytes.`,
+      `${source} deve apontar para um arquivo regular de no máximo 512 bytes.`,
+      `${source} debe apuntar a un archivo regular de como máximo 512 bytes.`,
+    ));
+  }
+  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
+    throw new Error(tr(
+      `${source}: ${path} is readable by other users. Run: chmod 600 ${path}`,
+      `${source}: ${path} pode ser lido por outros usuários. Execute: chmod 600 ${path}`,
+      `${source}: ${path} puede ser leído por otros usuarios. Ejecute: chmod 600 ${path}`,
+    ));
+  }
+  const value = readFileSync(path, "utf8").trim();
+  if (!value) {
+    throw new Error(tr(
+      `${source}: ${path} is empty.`,
+      `${source}: ${path} está vazio.`,
+      `${source}: ${path} está vacío.`,
+    ));
+  }
+  return value;
+}
+
+/** Finds the newest non-expired history entry for this room that recorded an llm_key. */
+function historyLlmKey(room: string): string | undefined {
+  const file = historyPath();
+  if (!file) return undefined;
+  const token = room.split("#")[0].split("?")[0].split("/").filter(Boolean).pop()?.toLowerCase();
+  if (!token) return undefined;
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    if (!Array.isArray(parsed)) return undefined;
+    const now = Date.now();
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const entry = item as HistoryEntry;
+      if (typeof entry.created_at !== "number" || now - entry.created_at > HISTORY_TTL_MS) continue;
+      if (typeof entry.llm_key !== "string") continue;
+      const places = [entry.url, entry.fourwords_url, entry.combo];
+      if (places.some((v) => typeof v === "string" && v.toLowerCase().includes(token))) return entry.llm_key;
+    }
+  } catch {
+    // Unreadable history: fall through without a key.
+  }
+  return undefined;
+}
+
+type LlmAuthValues = { "llm-key"?: string; "llm-name"?: string; "key-file"?: string; "from-history"?: boolean };
+
+function llmAuth(values: LlmAuthValues, room?: string) {
+  const keyFile = values["key-file"] ?? process.env.FOURWORDS_LLM_KEY_FILE;
+  const fileSource = values["key-file"] !== undefined ? "--key-file" : "FOURWORDS_LLM_KEY_FILE";
+  const llm_key = values["llm-key"]
+    ?? (values["key-file"] !== undefined ? readSecretFile(values["key-file"], "--key-file") : undefined)
+    ?? (values["from-history"] && room ? historyLlmKey(room) : undefined)
+    ?? (keyFile !== undefined ? readSecretFile(keyFile, fileSource) : undefined)
+    ?? process.env.FOURWORDS_LLM_KEY;
   const llm_name = values["llm-name"] ?? process.env.FOURWORDS_LLM_NAME;
   return compact({ llm_key, llm_name });
+}
+
+export function assertSafeUrl(raw: string, name: string): URL {
+  const url = new URL(raw);
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (!(url.protocol === "https:" || (loopback && url.protocol === "http:")) || url.username || url.password) {
+    throw new Error(tr(
+      `${name} must use HTTPS or loopback HTTP without embedded credentials.`,
+      `${name} deve usar HTTPS ou HTTP em loopback, sem credenciais na URL.`,
+      `${name} debe usar HTTPS o HTTP en loopback, sin credenciales en la URL.`,
+    ));
+  }
+  return url;
+}
+
+export const NOTIFY_KEY_RE = /^[a-f0-9]{32}$/;
+
+export function normalizeNotifyKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const clean = raw.trim().toLowerCase();
+  if (!clean) return undefined;
+  if (!NOTIFY_KEY_RE.test(clean)) {
+    throw new Error(tr(
+      `Invalid notify_key MD5 (expected 32 lowercase hex characters): ${raw}`,
+      `notify_key MD5 inválido (esperado 32 caracteres hexadecimais): ${raw}`,
+      `notify_key MD5 inválido (se esperaban 32 caracteres hexadecimales): ${raw}`,
+    ));
+  }
+  return clean;
+}
+
+export function extractGlobalNotify(rawArgs: string[]): { args: string[]; notifyKey?: string } {
+  const dashDash = rawArgs.indexOf("--");
+  const head = dashDash < 0 ? rawArgs : rawArgs.slice(0, dashDash);
+  const tail = dashDash < 0 ? [] : rawArgs.slice(dashDash);
+  const filtered: string[] = [];
+  let notifyKey: string | undefined;
+  for (let i = 0; i < head.length; i++) {
+    const token = head[i];
+    if (token === "--notify") {
+      const value = head[i + 1];
+      if (!value || value.startsWith("-")) {
+        throw new Error(tr(
+          "--notify requires a 32-character hexadecimal MD5 notify_key.",
+          "--notify requer um notify_key MD5 hexadecimal de 32 caracteres.",
+          "--notify requiere un notify_key MD5 hexadecimal de 32 caracteres.",
+        ));
+      }
+      notifyKey = normalizeNotifyKey(value);
+      i++;
+      continue;
+    }
+    if (token.startsWith("--notify=")) {
+      const value = token.slice("--notify=".length);
+      if (!value) {
+        throw new Error(tr(
+          "--notify requires a 32-character hexadecimal MD5 notify_key.",
+          "--notify requer um notify_key MD5 hexadecimal de 32 caracteres.",
+          "--notify requiere un notify_key MD5 hexadecimal de 32 caracteres.",
+        ));
+      }
+      notifyKey = normalizeNotifyKey(value);
+      continue;
+    }
+    filtered.push(token);
+  }
+  return { args: [...filtered, ...tail], notifyKey };
 }
 
 function historyPath(): string | undefined {
@@ -228,17 +365,9 @@ class FourWords {
   readonly endpoint: URL;
   readonly loopback: boolean;
 
-  constructor(private readonly signal?: AbortSignal) {
-    this.endpoint = new URL(process.env.FOURWORDS_MCP_URL || `${SITE}/mcp`);
+  constructor(private readonly signal?: AbortSignal, private readonly notifyKey?: string) {
+    this.endpoint = assertSafeUrl(process.env.FOURWORDS_MCP_URL || `${SITE}/mcp`, "FOURWORDS_MCP_URL");
     this.loopback = ["localhost", "127.0.0.1", "[::1]"].includes(this.endpoint.hostname);
-    if (!(this.endpoint.protocol === "https:" || (this.loopback && this.endpoint.protocol === "http:")) ||
-        this.endpoint.username || this.endpoint.password) {
-      throw new Error(tr(
-        "FOURWORDS_MCP_URL must use HTTPS or loopback HTTP without embedded credentials.",
-        "FOURWORDS_MCP_URL deve usar HTTPS ou HTTP em loopback, sem credenciais na URL.",
-        "FOURWORDS_MCP_URL debe usar HTTPS o HTTP en loopback, sin credenciales en la URL.",
-      ));
-    }
   }
 
   private authHeaders(): Record<string, string> {
@@ -346,7 +475,10 @@ class FourWords {
 
   async call(name: string, args: RecordValue) {
     const stateless = this.canUseStateless();
-    const result = record(await this.rpc("tools/call", { name, arguments: args }, false, stateless));
+    const payloadArgs = this.notifyKey && args.notify_key === undefined
+      ? { ...args, notify_key: this.notifyKey }
+      : args;
+    const result = record(await this.rpc("tools/call", { name, arguments: payloadArgs }, false, stateless));
     const content = Array.isArray(result.content) ? result.content : [];
     if (result.isError) {
       const message = content.find((item) => item?.type === "text")?.text;
@@ -381,11 +513,13 @@ class FourWords {
     const uploadUrl = new URL("/api/upload/file", this.endpoint.origin);
     uploadUrl.searchParams.set("name", filename);
     if (burn) uploadUrl.searchParams.set("burn", "1");
+    if (this.notifyKey) uploadUrl.searchParams.set("notify_key", this.notifyKey);
     const timeout = AbortSignal.timeout(600_000);
     const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,
+        ...(this.notifyKey ? { "X-Notify-Key": this.notifyKey } : {}),
         ...this.authHeaders(),
       },
       redirect: "error",
@@ -658,10 +792,61 @@ async function fetchFourWordsLink(
   });
 }
 
+/**
+ * Release signing public keys (minisign format: "Ed" + key id + Ed25519 key).
+ * The first entry is the active key; later entries allow rotation without
+ * breaking older clients. Generated by scripts/keygen.mjs; the private key
+ * never enters the repository.
+ */
+const UPDATE_PUBKEYS = [
+  "RWT5/nJ2+TFUYaiFXQdA0xeHp96l7dpxN4yGuxi+3c7kBbkyITuaLrYb",
+];
+const SPKI_ED25519 = Buffer.from("302a300506032b6570032100", "hex");
+
+function signatureError(why: string): Error {
+  return new Error(tr(
+    `Installer signature verification failed (${why}). Update aborted.`,
+    `A verificação da assinatura do instalador falhou (${why}). Atualização abortada.`,
+    `La verificación de la firma del instalador falló (${why}). Actualización abortada.`,
+  ));
+}
+
+/** Verifies a minisign prehashed ("ED") signature: Ed25519 over BLAKE2b-512 of the content. */
+export function verifyMinisig(content: Uint8Array, sigText: string, pubkeysB64: readonly string[]): void {
+  const lines = sigText.split(/\r?\n/);
+  if (lines.length < 4 || !lines[0].startsWith("untrusted comment:") || !lines[2].startsWith("trusted comment: ")) {
+    throw signatureError("malformed signature file");
+  }
+  const sigBlob = Buffer.from(lines[1], "base64");
+  const globalSig = Buffer.from(lines[3], "base64");
+  const trusted = lines[2].slice("trusted comment: ".length);
+  if (sigBlob.length !== 74 || sigBlob.subarray(0, 2).toString("latin1") !== "ED" || globalSig.length !== 64) {
+    throw signatureError("unsupported signature format");
+  }
+  const keyId = sigBlob.subarray(2, 10);
+  const signature = sigBlob.subarray(10);
+  let publicKey: ReturnType<typeof createPublicKey> | undefined;
+  for (const b64 of pubkeysB64) {
+    const blob = Buffer.from(b64, "base64");
+    if (blob.length === 42 && blob.subarray(0, 2).toString("latin1") === "Ed" && blob.subarray(2, 10).equals(keyId)) {
+      publicKey = createPublicKey({ key: Buffer.concat([SPKI_ED25519, blob.subarray(10)]), format: "der", type: "spki" });
+      break;
+    }
+  }
+  if (!publicKey) throw signatureError("unknown signing key id");
+  const digest = createHash("blake2b512").update(content).digest();
+  if (!cryptoVerify(null, digest, publicKey, signature)) throw signatureError("invalid file signature");
+  if (!cryptoVerify(null, Buffer.concat([signature, Buffer.from(trusted, "utf8")]), publicKey, globalSig)) {
+    throw signatureError("invalid trusted comment signature");
+  }
+}
+
 export async function fetchLatestVersion(signal?: AbortSignal): Promise<{ version: string; url: string }> {
-  const updateUrl = process.env.FOURWORDS_UPDATE_URL ||
-    "https://raw.githubusercontent.com/4words/4w-cli/main/package.json";
-  const res = await fetch(updateUrl, { signal });
+  const updateUrl = assertSafeUrl(
+    process.env.FOURWORDS_UPDATE_URL || "https://raw.githubusercontent.com/4words/4w-cli/main/package.json",
+    "FOURWORDS_UPDATE_URL",
+  ).href;
+  const res = await fetch(updateUrl, { signal, redirect: "error" });
   if (!res.ok) {
     throw new Error(tr(
       `Failed to check for updates (HTTP ${res.status}).`,
@@ -723,16 +908,31 @@ export async function handleUpdate(
   }
 
   const isWindows = process.platform === "win32";
-  const defaultScriptUrl = isWindows
-    ? "https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1"
-    : "https://raw.githubusercontent.com/4words/4w-cli/main/install.sh";
-  const scriptUrl = process.env.FOURWORDS_INSTALLER_URL || defaultScriptUrl;
+  // Installer artifacts come from the immutable release tag, not from a branch,
+  // and must carry a valid minisign signature from the embedded release keys.
+  const releaseBase = `https://raw.githubusercontent.com/4words/4w-cli/v${latestVersion}`;
+  const defaultScriptUrl = `${releaseBase}/${isWindows ? "install.ps1" : "install.sh"}`;
+  const scriptUrlObject = assertSafeUrl(process.env.FOURWORDS_INSTALLER_URL || defaultScriptUrl, "FOURWORDS_INSTALLER_URL");
+  const scriptUrl = scriptUrlObject.href;
 
   let scriptPath = process.env.FOURWORDS_INSTALLER_SCRIPT;
   let tempDirToClean: string | undefined;
 
+  if (scriptPath) {
+    // An explicit local script is the operator's own file: existence is checked,
+    // but signing is their responsibility (same trust as running sh themselves).
+    const info = await stat(scriptPath).catch(() => undefined);
+    if (!info?.isFile()) {
+      throw new Error(tr(
+        "FOURWORDS_INSTALLER_SCRIPT must point to an existing regular file.",
+        "FOURWORDS_INSTALLER_SCRIPT deve apontar para um arquivo regular existente.",
+        "FOURWORDS_INSTALLER_SCRIPT debe apuntar a un archivo regular existente.",
+      ));
+    }
+  }
+
   if (!scriptPath) {
-    const res = await fetch(scriptUrl, { signal });
+    const res = await fetch(scriptUrl, { signal, redirect: "error" });
     if (!res.ok) {
       throw new Error(tr(
         `Failed to download installer from ${scriptUrl} (HTTP ${res.status}).`,
@@ -740,11 +940,24 @@ export async function handleUpdate(
         `Error al descargar el instalador desde ${scriptUrl} (HTTP ${res.status}).`,
       ));
     }
-    const scriptContent = await res.text();
+    const scriptBytes = new Uint8Array(await res.arrayBuffer());
+    const sigRes = await fetch(`${scriptUrl}.minisig`, { signal, redirect: "error" });
+    if (!sigRes.ok) {
+      await sigRes.body?.cancel();
+      throw signatureError(`missing signature at ${scriptUrl}.minisig (HTTP ${sigRes.status})`);
+    }
+    const sigText = await sigRes.text();
+    // The test-only public key override is honored exclusively on loopback so
+    // it can never be abused to bypass verification of real releases.
+    const loopbackInstaller = ["localhost", "127.0.0.1", "[::1]"].includes(scriptUrlObject.hostname);
+    const pubkeys = loopbackInstaller && process.env.FOURWORDS_UPDATE_PUBKEY
+      ? [process.env.FOURWORDS_UPDATE_PUBKEY]
+      : UPDATE_PUBKEYS;
+    verifyMinisig(scriptBytes, sigText, pubkeys);
     const tmpBase = await mkdtemp(join(tmpdir(), "4w-update-"));
     tempDirToClean = tmpBase;
     scriptPath = join(tmpBase, isWindows ? "install.ps1" : "install.sh");
-    await writeFile(scriptPath, scriptContent, { mode: 0o700 });
+    await writeFile(scriptPath, scriptBytes, { mode: 0o700 });
   }
 
   try {
@@ -790,7 +1003,9 @@ export async function handleUpdate(
   }
 }
 
-export async function execute(args: string[], signal?: AbortSignal, input?: string): Promise<unknown> {
+export async function execute(rawArgs: string[], signal?: AbortSignal, input?: string): Promise<unknown> {
+  const { args, notifyKey: flagNotifyKey } = extractGlobalNotify(rawArgs);
+  const notifyKey = flagNotifyKey ?? normalizeNotifyKey(process.env.FOURWORDS_NOTIFY_KEY);
   const [command, ...rest] = args;
   let invoke: (mcp: FourWords) => Promise<unknown>;
   let forceInitialize = false;
@@ -960,6 +1175,8 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
     const llmOptions = {
       "llm-key": { type: "string" as const },
       "llm-name": { type: "string" as const },
+      "key-file": { type: "string" as const },
+      "from-history": { type: "boolean" as const },
     };
     if (action === "create") {
       const { values, positionals } = parseArgs({
@@ -1002,7 +1219,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
       const extra = compact({
         mentions_only: values["mentions-only"],
         nick: values.nick,
-        ...llmAuth(values),
+        ...llmAuth(values, positionals[0]),
       });
       invoke = (mcp) => mcp.call("chat_messages", { url: positionals[0], since, ...extra });
     } else if (action === "join" || action === "doc" || action === "participants" || action === "nick") {
@@ -1018,7 +1235,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         participants: "chat_participants",
         nick: "chat_roll_nick",
       } as const;
-      invoke = (mcp) => mcp.call(toolMap[action], { url: positionals[0], ...llmAuth(values) });
+      invoke = (mcp) => mcp.call(toolMap[action], { url: positionals[0], ...llmAuth(values, positionals[0]) });
     } else if (action === "register-llm") {
       const { values, positionals } = parseArgs({
         args: roomArgs,
@@ -1026,7 +1243,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         options: llmOptions,
       });
       exact(positionals, 1, "room register-llm ROOM --llm-key KEY [--llm-name NAME]");
-      const auth = llmAuth(values);
+      const auth = llmAuth(values, positionals[0]);
       if (typeof auth.llm_key !== "string" || !auth.llm_key.trim()) {
         throw new Error(tr(
           "Provide --llm-key or set FOURWORDS_LLM_KEY.",
@@ -1045,7 +1262,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         },
       });
       exact(positionals, 2, "room send ROOM TEXT [--nick NICK]");
-      const extra = compact({ nick: values.nick, ...llmAuth(values) });
+      const extra = compact({ nick: values.nick, ...llmAuth(values, positionals[0]) });
       invoke = (mcp) => mcp.call("chat_send", { url: positionals[0], text: positionals[1], ...extra });
     } else if (action === "send-file") {
       const { values, positionals } = parseArgs({
@@ -1067,7 +1284,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         text: values.text,
         nick: values.nick,
         burn,
-        ...llmAuth(values),
+        ...llmAuth(values, positionals[0]),
       });
       invoke = (mcp) => mcp.call("chat_send_file", {
         url,
@@ -1112,7 +1329,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
           rollback_to_ts,
           export_fourwords_link: values["export-link"],
           nick: values.nick,
-          ...llmAuth(values),
+          ...llmAuth(values, positionals[0]),
         });
         invoke = (mcp) => mcp.call("chat_save_doc", saveArgs);
       } else {
@@ -1136,7 +1353,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         const extra = compact({
           export_fourwords_link: values["export-link"],
           nick: values.nick,
-          ...llmAuth(values),
+          ...llmAuth(values, positionals[0]),
         });
         invoke = (mcp) => mcp.call("chat_save_doc", { url: positionals[0], content, base_updated_at, ...extra });
       }
@@ -1176,7 +1393,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         timeout_seconds,
         mentions_only,
         nick: values.nick,
-        ...llmAuth(values),
+        ...llmAuth(values, positionals[0]),
       }));
     } else if (action === "moderate") {
       const { values, positionals } = parseArgs({
@@ -1184,6 +1401,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         allowPositionals: true,
         options: {
           "admin-key": { type: "string" },
+          "admin-key-file": { type: "string" },
           nick: { type: "string" },
           "ban-id": { type: "string" },
           ...llmOptions,
@@ -1198,12 +1416,14 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
           "Acción de moderación inválida. Use ban, unban, list o verify.",
         ));
       }
-      const admin_key = values["admin-key"] ?? process.env.FOURWORDS_ADMIN_KEY;
+      const admin_key = values["admin-key"]
+        ?? (values["admin-key-file"] !== undefined ? readSecretFile(values["admin-key-file"], "--admin-key-file") : undefined)
+        ?? process.env.FOURWORDS_ADMIN_KEY;
       if (!admin_key || !admin_key.trim()) {
         throw new Error(tr(
-          "Provide --admin-key or set FOURWORDS_ADMIN_KEY.",
-          "Informe --admin-key ou defina FOURWORDS_ADMIN_KEY.",
-          "Indique --admin-key o defina FOURWORDS_ADMIN_KEY.",
+          "Provide --admin-key, --admin-key-file, or set FOURWORDS_ADMIN_KEY.",
+          "Informe --admin-key, --admin-key-file ou defina FOURWORDS_ADMIN_KEY.",
+          "Indique --admin-key, --admin-key-file o defina FOURWORDS_ADMIN_KEY.",
         ));
       }
       invoke = (mcp) => mcp.call("chat_moderate", compact({
@@ -1212,7 +1432,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
         admin_key,
         nick: values.nick,
         ban_id: values["ban-id"],
-        ...llmAuth(values),
+        ...llmAuth(values, positionals[0]),
       }));
     } else {
       throw new Error(tr(
@@ -1238,7 +1458,7 @@ export async function execute(args: string[], signal?: AbortSignal, input?: stri
     ));
   }
 
-  const mcp = new FourWords(signal);
+  const mcp = new FourWords(signal, notifyKey);
   if (!skipMcp && (forceInitialize || (mcp.loopback && process.env.FOURWORDS_STATELESS !== "1") || process.env.FOURWORDS_STATELESS === "0")) {
     await mcp.initialize();
   }

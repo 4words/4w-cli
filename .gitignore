@@ -113,3 +113,8 @@ $RECYCLE.BIN/
 *.swo
 *.swn
 *~
+
+# Rust
+/target/
+/dist/
+!crates/fw-core/src/secrets.rs

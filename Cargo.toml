@@ -1,0 +1,52 @@
+[workspace]
+resolver = "3"
+members = ["crates/fw-core", "crates/fw-room", "crates/fw-tui", "crates/4w"]
+
+[workspace.package]
+# Single-sourced with src/help.ts VERSION until the TypeScript CLI is retired.
+version = "1.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/4words/4w-cli"
+rust-version = "1.99"
+
+[workspace.dependencies]
+aes-gcm = "0.10"
+base64 = "0.22"
+blake2 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+getrandom = "0.3"
+ratatui = "0.30.2"
+ratatui-textarea = "0.9.4"
+pulldown-cmark = { version = "0.13", default-features = false }
+regex-lite = "0.1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+similar = "3"
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "fs", "io-util", "io-std", "signal", "process"] }
+unicode-segmentation = "1"
+unicode-width = "0.2"
+webpki-roots = "1"
+zeroize = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+debug = "line-tables-only"

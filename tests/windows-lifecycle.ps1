@@ -1,14 +1,14 @@
 [CmdletBinding()]
-param([Parameter(Mandatory = $true)][string]$BunArchive)
+param([Parameter(Mandatory = $true)][string]$Binary)
 
+# Windows lifecycle of install.ps1 in a throwaway profile. $Binary is the 4w.exe release build for x64.
 $ErrorActionPreference = 'Stop'
-if ($env:OS -ne 'Windows_NT') { throw 'Execute este teste em Windows.' }
+if ($env:OS -ne 'Windows_NT') { throw 'Run this test on Windows.' }
 $root = Split-Path -Parent $PSScriptRoot
-$archive = (Resolve-Path -LiteralPath $BunArchive).Path
+$binaryPath = (Resolve-Path -LiteralPath $Binary).Path
 $installer = Join-Path $root 'install.ps1'
 $version = [regex]::Match([IO.File]::ReadAllText($installer), '(?m)^\s*\$version = ''(\d+\.\d+\.\d+)''').Groups[1].Value
-if (-not $version) { throw 'A versão do instalador está ausente.' }
-$source = Join-Path $root "releases\$version\cli.ts"
+if (-not $version) { throw 'The installer version is missing.' }
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('4w test ' + [Guid]::NewGuid().ToString('N'))
 $previousLocal = $env:LOCALAPPDATA
 $previousPath = $env:Path
@@ -16,25 +16,26 @@ $null = New-Item -ItemType Directory -Path $temp
 $env:LOCALAPPDATA = $temp
 $exe = Join-Path $temp '4Words\CLI\bin\4w.exe'
 try {
-    & $installer -Source $source -BunArchive $archive
+    & $installer -Source $binaryPath
     $check = & $exe --self-test
-    if ($LASTEXITCODE -ne 0 -or $check -notmatch '^4w \d+\.\d+\.\d+ OK$') { throw 'Falha no binário instalado.' }
-    & $installer -Source $source -BunArchive $archive
+    if ($LASTEXITCODE -ne 0 -or $check -ne "4w $version OK") { throw 'The installed binary failed its self-test.' }
+    & $installer -Source $binaryPath   # idempotent update while the previous exe exists
     $before = (Get-FileHash -LiteralPath $exe).Hash
-    $invalid = Join-Path $temp 'alterado.ts'
-    [IO.File]::WriteAllText($invalid, 'invalid')
+    $tampered = Join-Path $temp 'tampered.exe'
+    Copy-Item -LiteralPath $binaryPath -Destination $tampered
+    [IO.File]::AppendAllText($tampered, 'x')
     $rejected = $false
-    try { & $installer -Source $invalid -BunArchive $archive }
+    try { & $installer -Source $tampered }
     catch {
         if ($_.Exception.Message -notlike '*SHA-256*') { throw }
         $rejected = $true
     }
-    if (-not $rejected -or (Get-FileHash -LiteralPath $exe).Hash -ne $before) { throw 'A rejeição não preservou a instalação.' }
+    if (-not $rejected -or (Get-FileHash -LiteralPath $exe).Hash -ne $before) { throw 'Rejection did not preserve the installation.' }
     & $installer -Uninstall
     & $installer -Uninstall
-    if (Test-Path -LiteralPath $exe) { throw 'Binário ainda existe após remoção.' }
-    if ($env:Path -like "*$temp*") { throw 'PATH da sessão ainda aponta para a instalação removida.' }
-    Write-Host 'Ciclo Windows OK.'
+    if (Test-Path -LiteralPath $exe) { throw 'The binary still exists after uninstall.' }
+    if ($env:Path -like "*$temp*") { throw 'The session PATH still points to the removed installation.' }
+    Write-Host 'Windows lifecycle OK.'
 } finally {
     try { & $installer -Uninstall } finally {
         $env:LOCALAPPDATA = $previousLocal

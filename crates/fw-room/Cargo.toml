@@ -1,0 +1,24 @@
+[package]
+name = "fw-room"
+description = "FourWords room engine: sync loop, cursor, state and effects (no UI)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+base64.workspace = true
+fw-core = { path = "../fw-core" }
+futures-util.workspace = true
+serde_json.workspace = true
+similar.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
+tokio-stream = { version = "0.1", features = ["sync"] }

@@ -1,11 +1,10 @@
-import { emitKeypressEvents } from "node:readline";
 import type { Tool } from "./commands";
 import { help, normalizeLang, resolveLang, saveLang, VERSION, type Lang } from "./help";
 import { actionsFor, deleteLink, keyGuideFor, maskSecrets, object, publicLink, resultJson, type Action, type Field, type Job, type Values } from "./tui-model";
-import { cleanLine, fieldLine, line, pad, paint, segmenter, width, wrap } from "./tui-screen";
+import { cleanLine, editField, fieldLine, lastLineStart, line, nextLineEnd, pad, paint, width, wrap } from "./tui-screen";
+import { runTerminalApp, type Key } from "./tui-term";
 
 type Execute = (args: string[], signal?: AbortSignal, input?: string) => Promise<unknown>;
-type Key = { name?: string; ctrl?: boolean; meta?: boolean; shift?: boolean; sequence?: string };
 type Home = { kind: "home"; index: number };
 type Catalog = { kind: "catalog"; tools: Tool[]; index: number; back: Home };
 type Form = {
@@ -201,44 +200,6 @@ const uiByLang: Record<Lang, UiStrings> = {
 
 function viewer(title: string, back: Viewer["back"], status: Viewer["status"], text?: string): Viewer {
   return { kind: "viewer", title, back, status, text, reveal: false, offset: 0 };
-}
-
-function lastLineStart(value: string, cursor: number) {
-  return cursor <= 0 ? 0 : value.lastIndexOf("\n", cursor - 1) + 1;
-}
-
-function nextLineEnd(value: string, cursor: number) {
-  const end = value.indexOf("\n", cursor);
-  return end < 0 ? value.length : end;
-}
-
-function editField(value: string, cursor: number, key: Key, inserted = ""): [string, number] {
-  if (inserted) return [value.slice(0, cursor) + inserted + value.slice(cursor), cursor + inserted.length];
-  const start = lastLineStart(value, cursor);
-  const end = nextLineEnd(value, cursor);
-  const segments = segmenter.segment(value);
-  const left = cursor > 0 ? segments.containing(cursor - 1)?.index ?? cursor - 1 : 0;
-  const right = segments.containing(cursor)?.segment.length ?? 0;
-  switch (key.name) {
-    case "left": return [value, left];
-    case "right": return [value, cursor + right];
-    case "home": return [value, start];
-    case "end": return [value, end];
-    case "up": {
-      if (!start) return [value, cursor];
-      const previous = lastLineStart(value, start - 1);
-      const next = Math.min(previous + cursor - start, start - 1);
-      return [value, segments.containing(next)?.index ?? next];
-    }
-    case "down": {
-      if (end === value.length) return [value, cursor];
-      const next = Math.min(end + 1 + cursor - start, nextLineEnd(value, end + 1));
-      return [value, segments.containing(next)?.index ?? next];
-    }
-    case "backspace": return [value.slice(0, left) + value.slice(cursor), left];
-    case "delete": return [value.slice(0, cursor) + value.slice(cursor + right), cursor];
-    default: return [value, cursor];
-  }
 }
 
 const appTitle = "F O U R W O R D S";
@@ -617,52 +578,5 @@ class Tui {
 }
 
 export function openTui(execute: Execute): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const { stdin, stdout } = process;
-    const wasRaw = stdin.isRaw;
-    let closed = false;
-    const cleanup = (error?: Error) => {
-      if (closed) return;
-      closed = true;
-      app.stop();
-      stdin.off("keypress", onKey);
-      stdin.off("end", onEnd);
-      stdin.off("error", onError);
-      stdout.off("resize", app.redraw);
-      process.off("SIGINT", onEnd);
-      process.off("SIGTERM", onEnd);
-      process.off("SIGHUP", onEnd);
-      process.off("exit", restore);
-      try { restore(); } catch (cause) { error ??= cause as Error; }
-      stdin.pause();
-      if (error) reject(error);
-      else resolve();
-    };
-    const app = new Tui(execute, cleanup);
-    const restore = () => {
-      try { stdin.setRawMode(wasRaw); } finally { stdout.write("\x1b[?2004l\x1b[0m\x1b[?25h\x1b[?1049l"); }
-    };
-    const onEnd = () => cleanup();
-    const onError = (error: Error) => cleanup(error);
-    const onKey = (text: string, key: Key) => {
-      try { app.onKey(text, key); } catch (error) { cleanup(error as Error); }
-    };
-    try {
-      emitKeypressEvents(stdin);
-      stdin.setRawMode(true);
-      stdin.on("keypress", onKey);
-      stdin.once("end", onEnd);
-      stdin.once("error", onError);
-      stdout.on("resize", app.redraw);
-      process.once("SIGINT", onEnd);
-      process.once("SIGTERM", onEnd);
-      process.once("SIGHUP", onEnd);
-      process.once("exit", restore);
-      stdout.write("\x1b[?1049h\x1b[?25l\x1b[?2004h\x1b[2J");
-      stdin.resume();
-      app.redraw();
-    } catch (error) {
-      cleanup(error as Error);
-    }
-  });
+  return runTerminalApp((done) => new Tui(execute, done));
 }

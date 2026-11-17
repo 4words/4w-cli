@@ -1,5 +1,8 @@
 [advisories]
 version = 2
+# chrono was marked unmaintained (no vulnerability). It only formats timestamps; migrating to jiff or time is
+# planned for 1.1. Remove this entry when that lands.
+ignore = [{ id = "RUSTSEC-2026-0543", reason = "chrono unmaintained notice, no known vulnerability; migration to jiff/time planned for 1.1" }]
 
 [licenses]
 version = 2

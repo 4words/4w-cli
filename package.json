@@ -1,6 +1,6 @@
 {
   "name": "4w-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "FourWords CLI & room workspace (Rust). package.json carries the version that older clients read to discover updates, and runs the conformance suites with Bun.",
   "private": true,
   "type": "module",

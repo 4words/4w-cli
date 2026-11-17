@@ -20,6 +20,7 @@ fn tls_config() -> rustls::ClientConfig {
 
 fn build(builder: reqwest::ClientBuilder) -> reqwest::Client {
     builder
+        .dns_resolver(Arc::new(crate::dns::Resolver))
         .use_preconfigured_tls(tls_config())
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("4w/", env!("CARGO_PKG_VERSION")))
@@ -46,7 +47,23 @@ pub fn network_error(error: reqwest::Error, context: &str) -> Error {
     } else {
         trs("network error", "erro de rede", "error de red")
     };
-    Error::new(ErrorKind::Network, format!("{context}: {reason}."))
+    let detail = if error.is_connect() { root_cause(&error) } else { None };
+    match detail {
+        Some(cause) => Error::new(ErrorKind::Network, format!("{context}: {reason} ({cause}).")),
+        None => Error::new(ErrorKind::Network, format!("{context}: {reason}.")),
+    }
+}
+
+/// Innermost cause of a connection failure (for example "failed to resolve host" or "Connection refused"),
+/// shortened and without any URL, so users can tell DNS problems from firewalls.
+fn root_cause(error: &reqwest::Error) -> Option<String> {
+    let mut source: &dyn std::error::Error = error;
+    while let Some(next) = source.source() {
+        source = next;
+    }
+    let text = source.to_string();
+    let text = text.split_whitespace().filter(|w| !w.contains("//")).collect::<Vec<_>>().join(" ");
+    (!text.is_empty()).then(|| text.chars().take(120).collect())
 }
 
 pub fn http_error(status: u16, context: &str) -> Error {

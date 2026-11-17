@@ -749,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "fw-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
@@ -766,7 +766,7 @@ dependencies = [
 
 [[package]]
 name = "fw-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "fw-room"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "fw-tui"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",

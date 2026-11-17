@@ -8,7 +8,7 @@ param(
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
     $version = '1.0.0'
-    $shaWindowsX64 = '0000000000000000000000000000000000000000000000000000000000000000'
+    $shaWindowsX64 = '12b83a6a0509af428ab9dde3d46ca3861958b54d197b1a57e3887479c503ada2'
     $release = 'https://github.com/4words/4w-cli/releases/download/v1.0.0'
     if ($env:OS -ne 'Windows_NT') { throw 'Use this installer on Windows.' }
     if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is not available.' }

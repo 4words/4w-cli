@@ -74,7 +74,7 @@ pub async fn run(raw_args: Vec<String>) -> Result<()> {
     let first = args.first().map(String::as_str);
     if args.is_empty() || (args.len() == 1 && first == Some("tui")) {
         if interactive() {
-            return Err(Error::other("The interactive panel is not available in this build yet."));
+            return launch_hub().await;
         }
         if !args.is_empty() {
             return Err(Error::usage(match lang::resolve() {
@@ -127,3 +127,36 @@ fn print_output(output: Output) -> Result<()> {
     }
 }
 
+
+/// Home screen loop: pick an action, open rooms in the workspace, come back to the hub afterwards.
+async fn launch_hub() -> Result<()> {
+    use fw_room::{Auth, RoomClient, SyncOptions};
+    use fw_tui::hub::{Exec, HubOutcome, run_hub};
+    use std::sync::Arc;
+    let exec: Exec = Arc::new(|args, input| {
+        Box::pin(async move {
+            match execute(&args, &Ctx { input }).await? {
+                Output::Json(value) => Ok(value),
+                Output::Raw { meta, .. } => Ok(meta),
+            }
+        })
+    });
+    loop {
+        match run_hub(exec.clone()).await? {
+            HubOutcome::Quit => return Ok(()),
+            HubOutcome::OpenRoom { room, admin_key } => {
+                let mcp = fw_core::mcp::Mcp::new(None)?;
+                mcp.ensure_ready(false).await?;
+                let client = RoomClient::new(mcp, room.clone(), Auth::default());
+                fw_tui::run_room(fw_tui::RoomLaunch {
+                    client,
+                    sync: SyncOptions::default(),
+                    mouse: true,
+                    owner_admin_key: admin_key,
+                    vault_link: Some(room),
+                })
+                .await?;
+            }
+        }
+    }
+}

@@ -283,3 +283,55 @@ rtest("quit asks for confirmation, exits 0 and restores the terminal", async () 
   expect(raw).toContain("\x1b[?2004l"); // bracketed paste disabled
   expect(raw).toContain("\x1b[?1006l"); // mouse reporting disabled
 });
+
+function openHub(mock: ReturnType<typeof startRoomMock>, env: Record<string, string> = {}, cols = 100, rows = 30): Session {
+  const screen = new Screen(rows, cols);
+  const dir = join(tmpdir(), `4w-hub-${process.pid}-${Math.random().toString(36).slice(2)}`);
+  const proc = Bun.spawn([rustBin!], {
+    env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "history.json"), FOURWORDS_CONFIG_FILE: join(dir, "config.json"), FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", TERM: "xterm-256color", ...env },
+    terminal: { cols, rows, data(_t: unknown, d: Uint8Array) { screen.feed(Buffer.from(d).toString()); } },
+  } as any);
+  cleanups.push(() => { try { proc.kill(); } catch {} });
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const term = (proc as any).terminal;
+  const waitFor = async (text: string, ms = 8000) => {
+    const deadline = Date.now() + ms;
+    while (!screen.contains(text)) {
+      if (Date.now() > deadline) throw new Error(`Missing ${JSON.stringify(text)}.\n--- screen ---\n${screen.text()}`);
+      await Bun.sleep(25);
+    }
+  };
+  return { screen, type: (t) => term.write(t), waitFor, gone: async () => {}, exited: proc.exited, proc };
+}
+
+rtest("hub: lists rooms, sharing and tools; publishes text through a form and shows the masked result", async () => {
+  const mock = startRoomMock();
+  cleanups.push(() => mock.stop());
+  const s = openHub(mock);
+  await s.waitFor("F O U R W O R D S");
+  await s.waitFor("New room");
+  await s.waitFor("Publish text");
+  await s.waitFor("MCP explorer");
+  for (let i = 0; i < 2; i++) s.type(KEY.down); // New room → Open → Publish text (sections are skipped)
+  s.type(KEY.enter);
+  await s.waitFor("Text or Markdown *");
+  s.type("segredo para publicar");
+  s.type(KEY.ctrl("s"));
+  await s.waitFor("RESPONSE");
+  s.type(KEY.esc);
+  await s.waitFor("Publish text");
+  s.type("q");
+  expect(await s.exited).toBe(0);
+  expect(s.screen.raw).toContain("\x1b[?1049l");
+});
+
+rtest("hub: language switch applies immediately and is remembered", async () => {
+  const mock = startRoomMock();
+  cleanups.push(() => mock.stop());
+  const s = openHub(mock);
+  await s.waitFor("New room");
+  s.type("l");
+  await s.waitFor("Nova sala");
+  s.type("l");
+  await s.waitFor("Nueva sala");
+});

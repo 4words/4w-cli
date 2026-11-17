@@ -3,6 +3,7 @@
 pub mod app;
 pub mod clip;
 pub mod diff;
+pub mod hub;
 pub mod i18n;
 pub mod markdown;
 pub mod term;

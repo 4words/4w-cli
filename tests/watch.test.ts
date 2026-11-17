@@ -105,7 +105,7 @@ async function startWatch(server: ReturnType<typeof Bun.serve>, extra: string[] 
   return { proc, events, until, pump };
 }
 
-test("room watch --jsonl avança o cursor, re-consulta no timeout, reconecta após erro e deduplica", async () => {
+test.skipIf(process.platform === "win32")("room watch --jsonl avança o cursor, re-consulta no timeout, reconecta após erro e deduplica", async () => {
   const { server, calls } = mockRoom([
     { messages: [{ seq: 2, nick: "bia", ts: 1_700_000_060_000, role: "llm", text: "azul \x1b[31mverm\x1b]0;x\x07 ‮" }], last_seq: 2,
       participants: [{ nick: "eu-1", role: "human" }, { nick: "bia", role: "llm", model: "claude" }], mentioned_me: true },
@@ -152,7 +152,7 @@ test("room watch --jsonl avança o cursor, re-consulta no timeout, reconecta ap�
   expect(waits[4]?.since).toBe(3);
 }, 20_000);
 
-test("room watch encaminha chave por arquivo e apelido apenas aos comandos que os aceitam", async () => {
+test.skipIf(process.platform === "win32")("room watch encaminha chave por arquivo e apelido apenas aos comandos que os aceitam", async () => {
   const { server, calls } = mockRoom([{ messages: [], last_seq: 1, timed_out: true }]);
   cleanup.push(() => { server.stop(true); });
   const dir = await mkdtemp(join(tmpdir(), "4w-watch-key-"));

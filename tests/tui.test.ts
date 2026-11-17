@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
-import { cliCommand } from "./bin";
+import { cliCommand, isTypeScript } from "./bin";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,7 +124,7 @@ test("4w sem TTY imprime ajuda em inglês por padrão e lembra idioma salvo via 
   }
 });
 
-test.skipIf(process.platform !== "linux" || !Bun.which("python3"))(
+test.skipIf(!isTypeScript || process.platform !== "linux" || !Bun.which("python3"))(
   "painel real no PTY navega, publica, consulta o MCP e restaura o terminal",
   async () => {
     const calls: Record<string, unknown>[] = [];

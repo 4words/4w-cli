@@ -105,7 +105,7 @@ test("4w update não reinstala quando versão já é a mais recente a menos que 
   expect(data.message).toContain("already");
 });
 
-test("4w update executa script de instalação com sucesso e reporta versão anterior e nova", async () => {
+test.skipIf(process.platform === "win32")("4w update executa script de instalação com sucesso e reporta versão anterior e nova", async () => {
   servedVersion = "9.0.0";
   const mockScript = join(directory, "mock-install.sh");
   await writeFile(mockScript, "#!/bin/sh\necho 'Mock install completed successfully.'\nexit 0\n", { mode: 0o755 });
@@ -119,7 +119,7 @@ test("4w update executa script de instalação com sucesso e reporta versão ant
   expect(data.output).toContain("Mock install completed successfully.");
 });
 
-test("4w update reporta erro caso o instalador falhe com código não zero", async () => {
+test.skipIf(process.platform === "win32")("4w update reporta erro caso o instalador falhe com código não zero", async () => {
   servedVersion = "9.0.0";
   const failingScript = join(directory, "failing-install.sh");
   await writeFile(failingScript, "#!/bin/sh\necho 'Disk full error' >&2\nexit 2\n", { mode: 0o755 });

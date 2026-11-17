@@ -1,17 +1,15 @@
 ﻿[CmdletBinding()]
 param(
     [switch]$Uninstall,
-    [string]$Source,
-    [string]$BunArchive
+    [string]$Source
 )
 
 & {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
-    $version = '0.4.0'
-    $sourceSha = 'e56e9f451acd735611a5eced61e146d832ddd6155e35d3f3e816aa1284f55d2e'
-    $bunVersion = '1.4.4'
-    $release = 'https://raw.githubusercontent.com/4words/4w-cli/v0.4.0'
+    $version = '1.0.0'
+    $shaWindowsX64 = '0000000000000000000000000000000000000000000000000000000000000000'
+    $release = 'https://github.com/4words/4w-cli/releases/download/v1.0.0'
     if ($env:OS -ne 'Windows_NT') { throw 'Use this installer on Windows.' }
     if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is not available.' }
     $base = Join-Path $env:LOCALAPPDATA '4Words\CLI'
@@ -117,66 +115,37 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr window, uint
             return
         }
 
-        Step '1/7' 'Detecting Windows version and architecture.'
-        if ([Environment]::OSVersion.Version.Build -lt 17763) { throw 'Bun requires Windows 10 1809 or newer.' }
+        Step '1/5' 'Detecting Windows version and architecture.'
+        if ([Environment]::OSVersion.Version.Build -lt 17763) { throw '4w requires Windows 10 1809 or newer.' }
         $cpu = $env:PROCESSOR_ARCHITEW6432
         if (-not $cpu) { $cpu = $env:PROCESSOR_ARCHITECTURE }
-        try {
-            $native = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
-            if ($native.Architecture -eq 12) { $cpu = 'ARM64' }
-            if ($native.Architecture -eq 9) { $cpu = 'AMD64' }
-        } catch { Write-Verbose 'Using architecture reported by environment.' }
-        switch ($cpu) {
-            'AMD64' {
-                $asset = 'bun-windows-x64'
-                $bunSha = 'cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5'
-            }
-            'ARM64' {
-                $asset = 'bun-windows-aarch64'
-                $bunSha = '2d57a0eec0cb44d95c918c3f9734f60455a1306ae5085d76fc68f44e3ee30d09'
-            }
-            default { throw "Unsupported architecture for Bun binary: $cpu." }
-        }
+        # One x64 build: native on AMD64 and run through Windows' emulation on ARM64.
+        if ($cpu -notin @('AMD64', 'ARM64')) { throw "Unsupported architecture: $cpu." }
+        $asset = '4w-x86_64-pc-windows-msvc.exe'
+        if ($shaWindowsX64 -eq ('0' * 64)) { throw "No prebuilt Windows binary in v$version yet. See https://github.com/4words/4w-cli/releases." }
         Write-Host "      System: Windows · arch: $cpu · 4w: $version."
         $null = New-Item -Path $bin -ItemType Directory -Force
         $work = Join-Path $base ('.work.' + [Guid]::NewGuid().ToString('N'))
         $null = New-Item -Path $work -ItemType Directory
-        $cli = Join-Path $work 'cli.ts'
-        $zip = Join-Path $work 'bun.zip'
         $built = Join-Path $work '4w.exe'
 
-        Step '2/7' 'Fetching and verifying 4w TypeScript source.'
-        if ($Source) { Copy-Item -LiteralPath $Source -Destination $cli }
-        else { Download "$release/releases/$version/cli.ts" $cli }
-        Verify $cli $sourceSha
+        Step '2/5' "Fetching $asset and verifying SHA-256."
+        if ($Source) { Copy-Item -LiteralPath $Source -Destination $built }
+        else { Download "$release/$asset" $built }
+        Verify $built $shaWindowsX64
 
-        Step '3/7' "Fetching Bun $bunVersion ($asset) and verifying SHA-256."
-        if ($BunArchive) { Copy-Item -LiteralPath $BunArchive -Destination $zip }
-        else { Download "https://github.com/oven-sh/bun/releases/download/bun-v$bunVersion/$asset.zip?4w=1" $zip }
-        Verify $zip $bunSha
-        Expand-Archive -LiteralPath $zip -DestinationPath $work
-        $bun = Join-Path (Join-Path $work $asset) 'bun.exe'
-        $actual = & $bun --version
-        if ($LASTEXITCODE -ne 0 -or $actual -ne $bunVersion) { throw 'Downloaded Bun binary failed to run or returned an unexpected version.' }
-
-        Step '4/7' 'Compiling 4w.exe into a standalone executable.'
-        Push-Location -LiteralPath $work
-        try {
-            & $bun build --compile ./cli.ts --outfile ./4w.exe
-            if ($LASTEXITCODE -ne 0) { throw "Compilation failed (exit code $LASTEXITCODE)." }
-        } finally { Pop-Location }
-
-        Step '5/7' 'Running self-test and verifying compiled version.'
+        Step '3/5' 'Running self-test and verifying the version.'
         $test = & $built --self-test
         if ($LASTEXITCODE -ne 0 -or $test -ne "4w $version OK") { throw 'Self-test failed. Previous installation preserved.' }
-        Remove-Item -LiteralPath (Split-Path -Parent $bun) -Recurse -Force
-        Remove-Item -LiteralPath $zip, $cli -Force
 
-        Step '6/7' 'Activating executable for current user.'
-        if ([IO.File]::Exists($exe)) { [IO.File]::Replace($built, $exe, (Join-Path $work 'previous.exe')) }
+        Step '4/5' 'Activating executable for current user.'
+        if ([IO.File]::Exists($exe)) {
+            # A running 4w.exe cannot be overwritten but can be replaced: Replace() renames the old file aside.
+            [IO.File]::Replace($built, $exe, (Join-Path $work 'previous.exe'))
+        }
         else { [IO.File]::Move($built, $exe) }
 
-        Step '7/7' 'Cleaning temporary files and checking PATH.'
+        Step '5/5' 'Cleaning temporary files and checking PATH.'
         if ($matching.Count -eq 0) {
             try {
                 $next = if ($userPath.Length -eq 0) { $bin } else { "$userPath;$bin" }
@@ -190,8 +159,8 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr window, uint
         }
         if (-not @($env:Path -split ';' | Where-Object { PathMatches $_ }).Count) { $env:Path = "$bin;$env:Path" }
         Write-Host "4w $version installed at $exe."
-        Write-Host 'First use: 4w --help | switch language: 4w lang ptbr | online check: 4w doctor.'
-        Write-Host 'Uninstall: & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/v0.4.0/install.ps1))) -Uninstall'
+        Write-Host 'First use: 4w (opens the panel) | 4w --help | switch language: 4w lang ptbr.'
+        Write-Host 'Uninstall: & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/v1.0.0/install.ps1))) -Uninstall'
     } catch {
         throw "4Words: $($_.Exception.Message)"
     } finally {

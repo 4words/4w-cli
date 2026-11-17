@@ -1,34 +1,31 @@
-# Verification Suite Documentation (`test_scripts/`)
+# Verification suite
 
-This document describes the verification scripts and test suites of the `4w-cli` project, their responsibilities, execution instructions, and technical references.
+`sh test_scripts/run_all_verifications.sh` runs everything below (set `WITH_RELEASE=1` to also build and
+sign the release). The TypeScript suite is the executable specification of the CLI: the same tests run
+against the Rust binary through `FOURWORDS_TEST_BIN`.
 
----
+## Rust (`cargo test --workspace`)
 
-## 1. Scripts in `test_scripts/`
+| Crate / file | Scope |
+| :--- | :--- |
+| `fw-core` unit tests | sanitization (terminal-injection, secret masking), URL rules and four-word links, SSE parser, AES-256-GCM (`4WENC1` text/binary, tampering), vault format, help in three languages, version comparison |
+| `fw-core/tests/signing.rs` | minisign signatures made by `scripts/sign.mjs` verify with the Rust verifier and embedded key; tampering fails |
+| `fw-room` unit tests | typed model ingestion, state reducer (dedupe, order, mentions, presence diff, doc history) |
+| `fw-room/tests/engine.rs` | the sync engine against a loopback MCP+SSE server: backlog is not lost when `join` reports `last_seq`, live messages/doc patches/presence, automatic fallback to long-polling, persistent 4xx ends the session |
+| `fw-tui` unit tests | Markdown renderer, wrapping/clipping, diff, safe file names, path completion |
+| `fw-tui/tests/render.rs` | `TestBackend` smoke test over 12 sizes × 3 languages × 4 themes × Unicode/ASCII × every modal (no panics), three-pane/people-strip/tabs layouts, secrets masked, no control characters in cells |
 
-### [`run_all_verifications.sh`](./run_all_verifications.sh)
-- **Purpose**: Run end-to-end hermetic validation of the `4w-cli` (`v0.4.0`) repository.
-- **Executed Steps**:
-  1. Deterministic generation of the release bundle and `SHA-256` hashes (`bun scripts/release.mjs`).
-  2. POSIX syntax validation of the installer (`sh -n install.sh`).
-  3. CLI self-test execution on both source and release bundle (`bun src/cli.ts --self-test`).
-  4. Internationalization and persistent language verification (`en` default, `ptbr`, `es`, and local persistence via `4w lang`).
-  5. Full automated unit, MCP protocol, Zero-Knowledge encryption, HTTP streaming, in-place self-updater, and real PTY test suite (`bun test`).
-- **Usage**:
-  ```sh
-  sh test_scripts/run_all_verifications.sh
-  ```
+## Bun (`bun test`, `FOURWORDS_TEST_BIN=target/release/4w bun test`)
 
----
+| File | Scope |
+| :--- | :--- |
+| `tests/mcp.test.ts` | the MCP client (`2025-03-26` stateful and `2026-07-28` stateless, SSE, pagination), `--burn` default, AES-256-GCM, `get`, streaming upload, vault, key files, `--notify`, all 15 tools |
+| `tests/update.test.ts` | semver, `4w update` (`--check`, `--force`), installer download from the tag with mandatory signature verification (tampered, unsigned and unknown-key installers abort), URL validation |
+| `tests/tui.test.ts` | help tree, languages and persistence (`4w lang`), terminal sanitization; the TS menu PTY test runs only against the TS implementation |
+| `tests/watch.test.ts` | `room watch --jsonl`: cursors, re-poll, backoff, dedupe, key/nick forwarding, argument validation |
+| `tests/room-tui.test.ts` | the Rust workspace and home in a real pseudoterminal (Bun native PTY + `tests/vt.ts` emulator): render, send, @mention completion, history/rollback, editor save, conflict resolution, remote-edit banner, search, owner moderation, file send, share, layouts, i18n/ASCII, reconnection, quit and terminal restoration |
+| `tests/lifecycle.sh` | the signed installer end to end in a throwaway `HOME` (pipe install, idempotent update, tampered binary refused, lock, Bun-era migration, uninstall, foreign program safety) |
+| `tests/windows-lifecycle.ps1` | the same lifecycle for `install.ps1` on Windows (run by CI/maintainer on Windows) |
 
-## 2. Base Test Reference in `tests/`
-
-| File | Technical Scope | How to Run |
-| :--- | :--- | :--- |
-| [`tests/update.test.ts`](../tests/update.test.ts) | Tests the semantic version comparator ([`compareSemver`](../src/help.ts)), repository release discovery ([`fetchLatestVersion`](../src/commands.ts)), `4w update --check`, in-place update execution via the verified installer, tag-pinned download with mandatory minisign signature verification (tampered/unsigned/unknown-key installers abort), HTTPS/loopback validation of `FOURWORDS_UPDATE_URL`/`FOURWORDS_INSTALLER_URL`, rollback on failure, `--force` override, and update help topics. | `bun test tests/update.test.ts` |
-| [`tests/mcp.test.ts`](../tests/mcp.test.ts) | Tests the MCP client ([`FourWords`](../src/commands.ts)), `2025-03-26` stateful and `2026-07-28` 1-RTT stateless negotiation, SSE, pagination, optimistic concurrency (`--base`), default `burn: true` (`--no-burn` to disable), AES-256-GCM encryption (`--encrypt`), direct download (`4w get`), streaming upload (`PUT /api/upload/file`), local vault (`4w history`), key files (`--key-file`, `FOURWORDS_LLM_KEY_FILE`, `--admin-key-file`, `--from-history`), TTY sanitization of `4w get --raw`, and all 15 MCP tools. | `bun test tests/mcp.test.ts` |
-| [`tests/watch.test.ts`](../tests/watch.test.ts) | Tests `4w room watch`: the long-poll core (cursor advance, immediate re-poll on timeout, exponential backoff after HTTP 5xx, dedupe by `seq`, permanent-4xx termination), `--jsonl` mode with sanitized output, key-file/nick forwarding, argument validation, and a real native-PTY session (receive, secret masking, send, shared-document view, terminal restoration). | `bun test tests/watch.test.ts` |
-| [`tests/tui.test.ts`](../tests/tui.test.ts) | Tests the contextual help tree, multilingual support (`en` default, `ptbr`, `es`), persistent language selection in `config.json` (`4w lang`), ANSI/VT sanitization ([`textSafe`](../src/tui-model.ts)), secret masking ([`maskSecrets`](../src/tui-model.ts)), and a real interactive pseudoterminal session. | `bun test tests/tui.test.ts` |
-| [`tests/terminal-session.py`](../tests/terminal-session.py) | Python `pty` driver that spawns a real Linux pseudoterminal, navigates the TUI, pastes Unicode via bracketed paste, verifies secret masking, copies via `OSC 52`, resizes the window (`SIGWINCH`), edits collaborative Markdown, and verifies `termios` restoration. | Invoked automatically by `bun test tests/tui.test.ts` |
-| [`tests/lifecycle.sh`](../tests/lifecycle.sh) | Tests the installation lifecycle, `PATH` idempotence, tampered `SHA-256` rejection, concurrency lockfile, and clean uninstallation on Linux/macOS. | `sh tests/lifecycle.sh /path/to/bun-linux-x64.zip` |
-| [`tests/windows-lifecycle.ps1`](../tests/windows-lifecycle.ps1) | Tests the installation lifecycle, `SHA-256` verification, session mutex, and clean uninstallation on Windows PowerShell. | `& .\tests\windows-lifecycle.ps1 -BunArchive C:\path\to\bun-windows-x64.zip` |
+Tests never touch the real user files: they set `FOURWORDS_CONFIG_FILE` / `FOURWORDS_HISTORY_FILE` or run the
+renderer with `persist_settings: false`.

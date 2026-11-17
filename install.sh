@@ -7,8 +7,8 @@ fourwords_install() (
     version='1.0.0'
     release='https://github.com/4words/4w-cli/releases/download/v1.0.0'
     raw='https://raw.githubusercontent.com/4words/4w-cli/v1.0.0'
-    sha_linux_x64='a4ea6474d871a214d44316a6cf6cc26775365d8be328a16ba80bf29dae7c88fb'
-    sha_linux_arm64='9dfe951ebae2aaa7d8e8c1d281099f6cb2e882acd173d6f749b56ad38dcd08e0'
+    sha_linux_x64='960a8d48b27d61c02318f6ccb3d7333740ae77b69e924e4e9a2b05a47ca02bae'
+    sha_linux_arm64='35e8ae3208c98d406b842c520cba6fd33a3599887312235ab32bad2e0d465732'
     sha_darwin_x64='0000000000000000000000000000000000000000000000000000000000000000'
     sha_darwin_arm64='0000000000000000000000000000000000000000000000000000000000000000'
     action=install

@@ -10,7 +10,7 @@ import { compareSemver, help, helpTopic, VERSION } from "../src/help";
 const cli = new URL("../src/cli.ts", import.meta.url).pathname;
 let directory: string;
 let server: ReturnType<typeof Bun.serve>;
-let servedVersion = "0.4.0";
+let servedVersion = "9.0.0";
 let installerBody: string | undefined;
 let installerSig: string | undefined;
 
@@ -76,13 +76,13 @@ test("ajuda de update cobre tópicos em en, ptbr e es", () => {
 });
 
 test("4w update --check identifica se há versão mais recente no repositório", async () => {
-  servedVersion = "0.9.0";
+  servedVersion = "9.9.0";
   const { code, out } = await run(["update", "--check"]);
   expect(code).toBe(0);
   const data = JSON.parse(out);
   expect(data.ok).toBe(true);
   expect(data.update_available).toBe(true);
-  expect(data.latest_version).toBe("0.9.0");
+  expect(data.latest_version).toBe("9.9.0");
   expect(data.current_version).toBe(VERSION);
   expect(data.command).toBe("4w update");
 
@@ -106,7 +106,7 @@ test("4w update não reinstala quando versão já é a mais recente a menos que 
 });
 
 test("4w update executa script de instalação com sucesso e reporta versão anterior e nova", async () => {
-  servedVersion = "1.0.0";
+  servedVersion = "9.0.0";
   const mockScript = join(directory, "mock-install.sh");
   await writeFile(mockScript, "#!/bin/sh\necho 'Mock install completed successfully.'\nexit 0\n", { mode: 0o755 });
 
@@ -115,12 +115,12 @@ test("4w update executa script de instalação com sucesso e reporta versão ant
   const data = JSON.parse(out);
   expect(data.ok).toBe(true);
   expect(data.previous_version).toBe(VERSION);
-  expect(data.updated_version).toBe("1.0.0");
+  expect(data.updated_version).toBe("9.0.0");
   expect(data.output).toContain("Mock install completed successfully.");
 });
 
 test("4w update reporta erro caso o instalador falhe com código não zero", async () => {
-  servedVersion = "1.0.0";
+  servedVersion = "9.0.0";
   const failingScript = join(directory, "failing-install.sh");
   await writeFile(failingScript, "#!/bin/sh\necho 'Disk full error' >&2\nexit 2\n", { mode: 0o755 });
 
@@ -159,7 +159,7 @@ function ephemeralReleaseKey() {
 }
 
 test("4w update baixa o instalador da tag, verifica a assinatura minisign e só então executa", async () => {
-  servedVersion = "1.0.0";
+  servedVersion = "9.0.0";
   const { key, pubBlob } = ephemeralReleaseKey();
   installerBody = "#!/bin/sh\necho 'signed install ok'\nexit 0\n";
   installerSig = minisignSignature(Buffer.from(installerBody), "install.sh", key);

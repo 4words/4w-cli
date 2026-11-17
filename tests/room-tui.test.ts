@@ -88,6 +88,8 @@ rtest("sends a message (optimistic until the server echoes it) with the identity
   expect(mock.calls.find((c) => c.name === "chat_send")!.args).toMatchObject({ text: "ola do teste", nick: "eu-1" });
   await s.waitFor("eu-1 (you)");
   await s.waitFor("ola do teste");
+  await s.waitFor("Type a message"); // the composer is empty again (placeholder back)
+  await s.waitFor("Message 0/2000");
 });
 
 rtest("@mention completes from the people list and sends the full text", async () => {

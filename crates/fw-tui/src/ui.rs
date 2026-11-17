@@ -72,13 +72,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 fn draw_workspace(f: &mut Frame, app: &mut App, area: Rect) {
     let mode = layout_for(area.width);
     let inner_w = area.width.saturating_sub(2) as usize;
-    let comp_lines: usize = app
-        .composer
-        .lines()
-        .iter()
-        .map(|l| (width(l).div_ceil(inner_w.max(1))).max(1))
-        .sum::<usize>()
-        .clamp(1, 5);
+    let comp_lines: usize = app.composer.lines().iter().map(|l| (width(l).div_ceil(inner_w.max(1))).max(1)).sum::<usize>().clamp(1, 5);
     let comp_h = comp_lines as u16 + 2;
     let strip_h = if mode == Layout3::Medium { 1 } else { 0 };
     let rows = Layout::vertical([
@@ -247,9 +241,8 @@ fn build_chat(app: &App, w: usize) -> (Vec<Line<'static>>, Vec<(usize, usize)>) 
                 th.dim,
             )));
         }
-        let group_start = new_day
-            || rule_before
-            || prev.map(|(n, t, _)| n != m.nick || m.ts.saturating_sub(t) > 5 * 60 * 1000).unwrap_or(true);
+        let group_start =
+            new_day || rule_before || prev.map(|(n, t, _)| n != m.nick || m.ts.saturating_sub(t) > 5 * 60 * 1000).unwrap_or(true);
         rule_before = false;
         let mine = app.my_message(m);
         let mention = !mine && fw_room::mentions(&m.text, &app.state.my_nick, Role::Human);
@@ -292,7 +285,14 @@ fn build_chat(app: &App, w: usize) -> (Vec<Line<'static>>, Vec<(usize, usize)>) 
 }
 
 fn chat_key(app: &App, w: usize) -> (usize, usize, bool, fw_core::Lang, usize, Option<u64>) {
-    (w, app.state.messages.len(), app.reveal, app.lang, app.theme.name as usize + if app.theme.unicode { 10 } else { 0 }, app.first_unread_seq)
+    (
+        w,
+        app.state.messages.len(),
+        app.reveal,
+        app.lang,
+        app.theme.name as usize + if app.theme.unicode { 10 } else { 0 },
+        app.first_unread_seq,
+    )
 }
 
 fn draw_chat(f: &mut Frame, app: &mut App, area: Rect) {
@@ -311,12 +311,12 @@ fn draw_chat(f: &mut Frame, app: &mut App, area: Rect) {
     let h = inner.height as usize;
     let mut lines: Vec<Line<'static>> = app.chat_cache.as_ref().map(|c| c.lines.clone()).unwrap_or_default();
     // highlight the selected message
-    if let (Some(sel), Some(cache)) = (app.chat_sel, app.chat_cache.as_ref()) {
-        if let Some(&(start, len)) = cache.spans.get(sel) {
-            for line in lines.iter_mut().skip(start).take(len) {
-                for span in &mut line.spans {
-                    span.style = span.style.patch(Style::default().add_modifier(Modifier::REVERSED));
-                }
+    if let (Some(sel), Some(cache)) = (app.chat_sel, app.chat_cache.as_ref())
+        && let Some(&(start, len)) = cache.spans.get(sel)
+    {
+        for line in lines.iter_mut().skip(start).take(len) {
+            for span in &mut line.spans {
+                span.style = span.style.patch(Style::default().add_modifier(Modifier::REVERSED));
             }
         }
     }
@@ -330,7 +330,12 @@ fn draw_chat(f: &mut Frame, app: &mut App, area: Rect) {
         };
         let body = wrap(&p.text, w.saturating_sub(8));
         for (i, row) in body.iter().enumerate() {
-            let mut spans = vec![Span::raw(" "), Span::styled(if i == 0 { format!("{} ", clock(p.ts_ms)) } else { "      ".into() }, th.dim), Span::raw(" "), Span::styled(row.clone(), style)];
+            let mut spans = vec![
+                Span::raw(" "),
+                Span::styled(if i == 0 { format!("{} ", clock(p.ts_ms)) } else { "      ".into() }, th.dim),
+                Span::raw(" "),
+                Span::styled(row.clone(), style),
+            ];
             if i + 1 == body.len() && !label.is_empty() {
                 spans.push(Span::styled(format!("  {label}"), style));
             }
@@ -350,13 +355,18 @@ fn draw_chat(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(Paragraph::new(visible), text_area);
     if total > h {
         let mut state = ScrollbarState::new(total.saturating_sub(h)).position(start);
-        f.render_stateful_widget(Scrollbar::new(ScrollbarOrientation::VerticalRight).begin_symbol(None).end_symbol(None), inner, &mut state);
+        f.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight).begin_symbol(None).end_symbol(None),
+            inner,
+            &mut state,
+        );
     }
     if scroll > 0 && app.unread > 0 {
         let label = format!(" {} {} ", app.theme.sym().down, fmt(app.s.new_below, &[("n", &app.unread.to_string())]));
         let w = width(&label) as u16;
         if inner.width > w + 2 {
-            let r = Rect { x: inner.x + inner.width.saturating_sub(w + 2), y: inner.y + inner.height.saturating_sub(1), width: w, height: 1 };
+            let r =
+                Rect { x: inner.x + inner.width.saturating_sub(w + 2), y: inner.y + inner.height.saturating_sub(1), width: w, height: 1 };
             f.render_widget(Paragraph::new(Line::styled(label, th.selected)), r);
         }
     }
@@ -381,7 +391,8 @@ fn draw_people(f: &mut Frame, app: &mut App, area: Rect) {
         let (dot, dot_style) = presence_dot(app, p);
         let me = p.nick == app.state.my_nick;
         let name = if me { format!("{} ({})", p.nick, app.s.you) } else { p.nick.clone() };
-        let mut spans = vec![Span::styled(format!(" {dot} "), dot_style), Span::styled(name, if me { th.accent } else { th.nick_style(&p.nick) })];
+        let mut spans =
+            vec![Span::styled(format!(" {dot} "), dot_style), Span::styled(name, if me { th.accent } else { th.nick_style(&p.nick) })];
         spans.extend(participant_badge(app, p));
         let mut line = Line::from(spans);
         if focused && app.people_sel == i {
@@ -411,7 +422,8 @@ fn draw_doc(f: &mut Frame, app: &mut App, area: Rect) {
     let w = (inner.width as usize).saturating_sub(2).max(8);
     let key = (w, app.state.doc.version, app.state.doc.updated_at, app.reveal, format!("{:?}{}", app.theme.name, app.theme.unicode));
     if app.doc_cache.as_ref().map(|c| c.key != key).unwrap_or(true) {
-        let content = if app.reveal { app.state.doc.content.clone() } else { fw_core::sanitize::mask_secrets(&app.state.doc.content, app.lang) };
+        let content =
+            if app.reveal { app.state.doc.content.clone() } else { fw_core::sanitize::mask_secrets(&app.state.doc.content, app.lang) };
         let lines = markdown::render(&content, w, &app.theme);
         app.doc_cache = Some(DocCache { key, lines });
     }
@@ -429,7 +441,11 @@ fn draw_doc(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(Paragraph::new(visible), text_area);
     if lines.len() > h {
         let mut state = ScrollbarState::new(max_scroll).position(app.doc_scroll);
-        f.render_stateful_widget(Scrollbar::new(ScrollbarOrientation::VerticalRight).begin_symbol(None).end_symbol(None), inner, &mut state);
+        f.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight).begin_symbol(None).end_symbol(None),
+            inner,
+            &mut state,
+        );
     }
 }
 
@@ -489,7 +505,13 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ToastKind::Warn => app.theme.warn,
             ToastKind::Err => app.theme.err,
         };
-        f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(&toast.text, (area.width as usize).saturating_sub(1), "…")), style.add_modifier(Modifier::BOLD))), area);
+        f.render_widget(
+            Paragraph::new(Line::styled(
+                format!(" {}", clip(&toast.text, (area.width as usize).saturating_sub(1), "…")),
+                style.add_modifier(Modifier::BOLD),
+            )),
+            area,
+        );
         return;
     }
     let text = if !app.modals.is_empty() {
@@ -506,7 +528,10 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             Pane::People => s.foot_people,
         }
     };
-    f.render_widget(Paragraph::new(Line::styled(format!(" {}", clip(text, (area.width as usize).saturating_sub(1), "…")), app.theme.dim)), area);
+    f.render_widget(
+        Paragraph::new(Line::styled(format!(" {}", clip(text, (area.width as usize).saturating_sub(1), "…")), app.theme.dim)),
+        area,
+    );
 }
 
 // ---- editor ----------------------------------------------------------------------------------
@@ -527,7 +552,13 @@ fn draw_editor(f: &mut Frame, app: &mut App, area: Rect) {
         ),
         Mode::Workspace => return,
     };
-    let state = if saving { s.editor_busy } else if dirty { s.editor_dirty } else { s.editor_clean };
+    let state = if saving {
+        s.editor_busy
+    } else if dirty {
+        s.editor_dirty
+    } else {
+        s.editor_clean
+    };
     let counter = fmt(s.editor_count, &[("n", &count.to_string()), ("max", &MAX_DOC.to_string())]);
     let title = format!("{} · {} · {state} · {counter}", s.editor_title, fmt(s.rev, &[("v", &base_version.to_string())]));
     let rows = Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).split(area);
@@ -650,11 +681,7 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 Some(_) => "••••••••••••••••".replace('•', if th.unicode { "•" } else { "*" }),
                 None => s.share_missing.to_string(),
             };
-            let rows = [
-                (s.share_link, Some(app.link())),
-                (s.share_llm, app.llm_key.clone()),
-                (s.share_admin, app.owner_admin_key.clone()),
-            ];
+            let rows = [(s.share_link, Some(app.link())), (s.share_llm, app.llm_key.clone()), (s.share_admin, app.owner_admin_key.clone())];
             let mut lines: Vec<Line> = Vec::new();
             for (i, (label, value)) in rows.iter().enumerate() {
                 let shown = if i == 0 { value.clone().unwrap_or_default() } else { secret(value) };
@@ -683,7 +710,11 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             f.render_widget(block, rect);
             let (a, d) = crate::diff::stats(theirs, mine);
             let mut lines = vec![Line::styled(fmt(s.conflict_body, &[("who", who)]), th.warn), Line::default()];
-            lines.push(Line::from(vec![Span::styled(format!(" +{a} "), th.diff_add), Span::styled(format!("−{d}"), th.diff_del), Span::styled("  (D: diff)", th.dim)]));
+            lines.push(Line::from(vec![
+                Span::styled(format!(" +{a} "), th.diff_add),
+                Span::styled(format!("−{d}"), th.diff_del),
+                Span::styled("  (D: diff)", th.dim),
+            ]));
             lines.push(Line::default());
             for row in wrap(s.conflict_opts, (inner.width as usize).saturating_sub(2)) {
                 lines.push(Line::styled(format!(" {row}"), th.accent));
@@ -701,7 +732,8 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, title);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let mut lines: Vec<Line> = wrap(text, (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
+            let mut lines: Vec<Line> =
+                wrap(text, (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
             lines.push(Line::default());
             lines.push(Line::styled(format!(" {}", s.confirm_hint), th.accent));
             f.render_widget(Paragraph::new(lines), inner);
@@ -740,7 +772,15 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 let Some(m) = app.state.messages.get(*idx) else { continue };
                 let name = m.filename.clone().unwrap_or_else(|| crate::util::file_name_from_url(m.file_url.as_deref().unwrap_or("")));
                 let style = if i == *selected { th.selected } else { th.text };
-                lines.push(Line::styled(format!(" {}  {}  {}", clock(m.ts), clip(&m.nick, 16, "…"), clip(&name, (inner.width as usize).saturating_sub(30), "…")), style));
+                lines.push(Line::styled(
+                    format!(
+                        " {}  {}  {}",
+                        clock(m.ts),
+                        clip(&m.nick, 16, "…"),
+                        clip(&name, (inner.width as usize).saturating_sub(30), "…")
+                    ),
+                    style,
+                ));
             }
             lines.push(Line::default());
             lines.push(Line::styled(s.files_hint, th.dim));
@@ -752,7 +792,11 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, s.download_to);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let mut lines = vec![Line::styled(clip(&fw_core::sanitize::mask_secrets(url, app.lang), (inner.width as usize).saturating_sub(2), "…"), th.dim), input_line(input, th, true), Line::default()];
+            let mut lines = vec![
+                Line::styled(clip(&fw_core::sanitize::mask_secrets(url, app.lang), (inner.width as usize).saturating_sub(2), "…"), th.dim),
+                input_line(input, th, true),
+                Line::default(),
+            ];
             if *burn_note {
                 lines.push(Line::styled(" ! burn-after-reading files can be downloaded only once", th.warn));
             }
@@ -770,7 +814,11 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, s.actions_title);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let lines: Vec<Line> = items.iter().enumerate().map(|(i, t)| Line::styled(format!(" {t} "), if i == *selected { th.selected } else { th.text })).collect();
+            let lines: Vec<Line> = items
+                .iter()
+                .enumerate()
+                .map(|(i, t)| Line::styled(format!(" {t} "), if i == *selected { th.selected } else { th.text }))
+                .collect();
             f.render_widget(Paragraph::new(lines), inner);
         }
         Modal::Search { query, selected } => {
@@ -789,7 +837,15 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
                 let Some(m) = app.state.messages.get(*idx) else { continue };
                 let preview = m.text.replace('\n', " ");
                 let style = if i == sel { th.selected } else { th.text };
-                lines.push(Line::styled(format!(" {} {}: {}", clock(m.ts), m.nick, clip(&preview, (inner.width as usize).saturating_sub(16 + width(&m.nick)), "…")), style));
+                lines.push(Line::styled(
+                    format!(
+                        " {} {}: {}",
+                        clock(m.ts),
+                        m.nick,
+                        clip(&preview, (inner.width as usize).saturating_sub(16 + width(&m.nick)), "…")
+                    ),
+                    style,
+                ));
             }
             f.render_widget(Paragraph::new(lines), inner);
         }
@@ -799,7 +855,8 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, title);
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let lines: Vec<Line> = wrap(&app.mask(body), (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
+            let lines: Vec<Line> =
+                wrap(&app.mask(body), (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::raw(format!(" {r}"))).collect();
             f.render_widget(Paragraph::new(lines), inner);
         }
         Modal::Upload(u) => {
@@ -808,7 +865,8 @@ fn draw_modal(f: &mut Frame, app: &App, modal: &Modal, area: Rect) {
             let block = modal_block(app, &fmt(s.uploading, &[("name", &u.name)]));
             let inner = block.inner(rect);
             f.render_widget(block, rect);
-            let ratio = if u.total > 0 { (u.sent.load(std::sync::atomic::Ordering::Relaxed) as f64 / u.total as f64).clamp(0.0, 1.0) } else { 0.0 };
+            let ratio =
+                if u.total > 0 { (u.sent.load(std::sync::atomic::Ordering::Relaxed) as f64 / u.total as f64).clamp(0.0, 1.0) } else { 0.0 };
             let spin = th.sym().spinner[app.spinner % th.sym().spinner.len()];
             f.render_widget(Paragraph::new(Line::styled(format!(" {spin}"), th.accent)), Rect { height: 1, ..inner });
             f.render_widget(
@@ -848,7 +906,10 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect, selected: usize, diff_scro
     f.render_widget(block, rect);
     let revs: Vec<&fw_room::Revision> = app.state.doc.history.iter().rev().collect();
     if revs.is_empty() {
-        f.render_widget(Paragraph::new(vec![Line::styled(s.history_empty, th.dim), Line::default(), Line::styled(s.history_hint, th.dim)]), inner);
+        f.render_widget(
+            Paragraph::new(vec![Line::styled(s.history_empty, th.dim), Line::default(), Line::styled(s.history_hint, th.dim)]),
+            inner,
+        );
         return;
     }
     let rows = Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).split(inner);
@@ -864,7 +925,13 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect, selected: usize, diff_scro
         .map(|(i, r)| {
             let text = fmt(
                 s.revision_line,
-                &[("v", &r.version.to_string()), ("nick", &clip(&r.nick, 12, "…")), ("a", &r.additions.to_string()), ("d", &r.deletions.to_string()), ("time", &clock(r.ts))],
+                &[
+                    ("v", &r.version.to_string()),
+                    ("nick", &clip(&r.nick, 12, "…")),
+                    ("a", &r.additions.to_string()),
+                    ("d", &r.deletions.to_string()),
+                    ("time", &clock(r.ts)),
+                ],
             );
             let mut text = clip(&text, (cols[0].width as usize).saturating_sub(1), "…");
             if r.rollback_from.is_some() {
@@ -880,8 +947,14 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect, selected: usize, diff_scro
     let pane = Block::new().borders(Borders::LEFT).border_style(th.border);
     let pane_inner = pane.inner(cols[1]);
     f.render_widget(pane, cols[1]);
-    f.render_widget(Paragraph::new(diff_lines(app, &lines, (pane_inner.width as usize).saturating_sub(1), diff_scroll, pane_inner.height as usize)), Rect { x: pane_inner.x + 1, ..pane_inner });
-    f.render_widget(Paragraph::new(Line::styled(clip(s.history_hint, rows[1].width as usize, "…"), th.dim)).alignment(Alignment::Left), rows[1]);
+    f.render_widget(
+        Paragraph::new(diff_lines(app, &lines, (pane_inner.width as usize).saturating_sub(1), diff_scroll, pane_inner.height as usize)),
+        Rect { x: pane_inner.x + 1, ..pane_inner },
+    );
+    f.render_widget(
+        Paragraph::new(Line::styled(clip(s.history_hint, rows[1].width as usize, "…"), th.dim)).alignment(Alignment::Left),
+        rows[1],
+    );
 }
 
 fn draw_moderation(f: &mut Frame, app: &App, area: Rect, person: usize, ban: usize, in_bans: bool, bans: &[(String, String)]) {
@@ -893,7 +966,10 @@ fn draw_moderation(f: &mut Frame, app: &App, area: Rect, person: usize, ban: usi
     let inner = block.inner(rect);
     f.render_widget(block, rect);
     if !app.is_owner() {
-        let lines: Vec<Line> = wrap(s.mod_need_key, (inner.width as usize).saturating_sub(2)).into_iter().map(|r| Line::styled(format!(" {r}"), th.warn)).collect();
+        let lines: Vec<Line> = wrap(s.mod_need_key, (inner.width as usize).saturating_sub(2))
+            .into_iter()
+            .map(|r| Line::styled(format!(" {r}"), th.warn))
+            .collect();
         f.render_widget(Paragraph::new(lines), inner);
         return;
     }
@@ -919,4 +995,3 @@ fn draw_moderation(f: &mut Frame, app: &App, area: Rect, person: usize, ban: usi
     f.render_widget(Paragraph::new(right), cols[1]);
     f.render_widget(Paragraph::new(Line::styled(clip(s.mod_hint, rows[1].width as usize, "…"), th.dim)), rows[1]);
 }
-

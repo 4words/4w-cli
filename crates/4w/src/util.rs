@@ -215,9 +215,8 @@ fn input_too_big(limit: usize) -> Error {
 }
 
 fn utf8(bytes: Vec<u8>) -> Result<String> {
-    String::from_utf8(bytes).map_err(|_| {
-        Error::usage(trs("Input is not valid UTF-8.", "A entrada não é UTF-8 válido.", "La entrada no es UTF-8 válido."))
-    })
+    String::from_utf8(bytes)
+        .map_err(|_| Error::usage(trs("Input is not valid UTF-8.", "A entrada não é UTF-8 válido.", "La entrada no es UTF-8 válido.")))
 }
 
 /// Reads UTF-8 text from a file, from `-` (stdin or the injected `input`), within `limit` bytes.

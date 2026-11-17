@@ -59,14 +59,12 @@ pub fn set_override(lang: Lang) {
 }
 
 pub fn resolve() -> Lang {
-    if let Ok(slot) = OVERRIDE.read() {
-        if let Some(lang) = *slot {
-            return lang;
-        }
+    if let Ok(slot) = OVERRIDE.read()
+        && let Some(lang) = *slot
+    {
+        return lang;
     }
-    normalize(std::env::var("FOURWORDS_LANG").ok().as_deref())
-        .or_else(config::saved_lang)
-        .unwrap_or(Lang::En)
+    normalize(std::env::var("FOURWORDS_LANG").ok().as_deref()).or_else(config::saved_lang).unwrap_or(Lang::En)
 }
 
 /// Picks the string for the active language: `tr("English", "Português", "Español")`.

@@ -28,7 +28,7 @@ function open(mock: ReturnType<typeof startRoomMock>, o: { cols?: number; rows?:
   const cols = o.cols ?? 130, rows = o.rows ?? 34;
   const screen = new Screen(rows, cols);
   const proc = Bun.spawn([rustBin!, "room", "watch", "lua-gato-sol-rio-123456789", ...(o.args ?? [])], {
-    env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_NO_HISTORY: "1", FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", TERM: "xterm-256color", ...o.env },
+    env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_NO_HISTORY: "1", FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", FOURWORDS_CONFIG_FILE: join(tmpdir(), `4w-room-cfg-${process.pid}.json`), FOURWORDS_HISTORY_FILE: join(tmpdir(), `4w-room-hist-${process.pid}.json`), TERM: "xterm-256color", ...o.env },
     terminal: { cols, rows, data(_t: unknown, d: Uint8Array) { screen.feed(Buffer.from(d).toString()); } },
   } as any);
   cleanups.push(() => { try { proc.kill(); } catch {} });

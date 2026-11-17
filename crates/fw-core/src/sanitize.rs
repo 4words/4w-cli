@@ -22,7 +22,15 @@ fn is_unsafe(c: char, keep_tab_newline: bool) -> bool {
 /// Newlines are preserved; tabs are replaced.
 pub fn text_safe(text: &str) -> String {
     text.chars()
-        .map(|c| if c == '\n' { c } else if is_unsafe(c, false) { REPLACEMENT } else { c })
+        .map(|c| {
+            if c == '\n' {
+                c
+            } else if is_unsafe(c, false) {
+                REPLACEMENT
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -30,7 +38,15 @@ pub fn text_safe(text: &str) -> String {
 pub fn raw_safe(text: &str) -> String {
     text.replace("\r\n", "\n")
         .chars()
-        .map(|c| if c == '\n' || c == '\t' { c } else if is_unsafe(c, false) { REPLACEMENT } else { c })
+        .map(|c| {
+            if c == '\n' || c == '\t' {
+                c
+            } else if is_unsafe(c, false) {
+                REPLACEMENT
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -51,9 +67,7 @@ pub fn clean_line(text: &str) -> String {
 
 fn secret_pattern() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r"(?i)\bfw(?:adm|llm)_[0-9a-f]+\b|https://[^\s<>]+/d/[0-9a-f]{32,}\b").expect("valid regex")
-    })
+    RE.get_or_init(|| Regex::new(r"(?i)\bfw(?:adm|llm)_[0-9a-f]+\b|https://[^\s<>]+/d/[0-9a-f]{32,}\b").expect("valid regex"))
 }
 
 pub fn hidden_token(lang: Lang) -> &'static str {
@@ -86,11 +100,8 @@ pub fn json_masked(value: &Value, reveal: bool, lang: Lang) -> String {
             Value::Object(map) => Value::Object(
                 map.iter()
                     .map(|(k, v)| {
-                        let masked = if !reveal && secret_key_name(k) {
-                            Value::String(hidden_token(lang).into())
-                        } else {
-                            walk(v, reveal, lang)
-                        };
+                        let masked =
+                            if !reveal && secret_key_name(k) { Value::String(hidden_token(lang).into()) } else { walk(v, reveal, lang) };
                         (k.clone(), masked)
                     })
                     .collect(),
@@ -124,7 +135,8 @@ mod tests {
         let masked = mask_secrets(&text, Lang::En);
         assert!(!masked.contains("abc123") && !masked.contains("00ff") && !masked.contains(&"a".repeat(40)));
         assert_eq!(mask_secrets("fwllm_zz plain", Lang::PtBr), "fwllm_zz plain");
-        let value = serde_json::json!({"admin_key": "fwadm_1", "url": "u", "nested": {"delete_url": "x", "llm_key": "y"}, "note": "fwllm_ff"});
+        let value =
+            serde_json::json!({"admin_key": "fwadm_1", "url": "u", "nested": {"delete_url": "x", "llm_key": "y"}, "note": "fwllm_ff"});
         let out = json_masked(&value, false, Lang::En);
         assert!(out.contains("[hidden]") && !out.contains("fwadm_1") && !out.contains("\"x\"") && !out.contains("fwllm_ff"));
         assert!(json_masked(&value, true, Lang::En).contains("fwadm_1"));

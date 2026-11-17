@@ -6,7 +6,7 @@ use crate::i18n::{Strings, strings};
 use crate::text::fmt;
 use crate::theme::Theme;
 use fw_core::{Lang, Result};
-use fw_room::{Applied, Control, Conn, Doc, Event, Message, Participant, RoomClient, RoomState, SaveOutcome, Sent};
+use fw_room::{Applied, Conn, Control, Doc, Event, Message, Participant, RoomClient, RoomState, SaveOutcome, Sent};
 use ratatui::crossterm::event::{Event as CtEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -283,6 +283,8 @@ pub struct AppConfig {
     pub owner_admin_key: Option<String>,
     pub llm_key: Option<String>,
     pub mouse: bool,
+    /// Real runs persist language changes and apply them process-wide; tests must not touch user files.
+    pub persist_settings: bool,
 }
 
 pub struct ChatCache {
@@ -336,6 +338,7 @@ pub struct App {
     pub raw_out: Vec<String>,
     pub bell: bool,
     pub chat_width: usize,
+    pub persist_settings: bool,
 }
 
 fn new_composer(s: &Strings, th: &Theme) -> TextArea<'static> {
@@ -391,6 +394,7 @@ impl App {
             raw_out: Vec::new(),
             bell: std::env::var("FOURWORDS_BELL").as_deref() == Ok("1"),
             chat_width: 80,
+            persist_settings: cfg.persist_settings,
         }
     }
 
@@ -420,8 +424,10 @@ impl App {
     pub fn set_lang(&mut self, lang: Lang) {
         self.lang = lang;
         self.s = strings(lang);
-        fw_core::lang::set_override(lang);
-        let _ = fw_core::config::save_lang(lang);
+        if self.persist_settings {
+            fw_core::lang::set_override(lang);
+            let _ = fw_core::config::save_lang(lang);
+        }
         let text = self.composer_text();
         self.composer = new_composer(self.s, &self.theme);
         self.composer.insert_str(text);
@@ -456,13 +462,8 @@ impl App {
             return (String::new(), vec![]);
         }
         let prefix = token.to_lowercase();
-        let mut names: Vec<String> = self
-            .state
-            .participants
-            .iter()
-            .filter(|p| p.nick != self.state.my_nick)
-            .map(|p| p.nick.clone())
-            .collect();
+        let mut names: Vec<String> =
+            self.state.participants.iter().filter(|p| p.nick != self.state.my_nick).map(|p| p.nick.clone()).collect();
         names.push("all".into());
         names.retain(|n| n.to_lowercase().starts_with(&prefix));
         names.sort();
@@ -491,10 +492,11 @@ impl App {
         let conn_before = self.state.conn.clone();
         let applied: Applied = self.state.apply(event.clone());
         self.dirty = true;
-        if let Event::Conn(conn) = &event {
-            if matches!(conn_before, Conn::Reconnecting { .. }) && matches!(conn, Conn::Live(_)) {
-                self.toast(ToastKind::Ok, self.s.live_sse);
-            }
+        if let Event::Conn(conn) = &event
+            && matches!(conn_before, Conn::Reconnecting { .. })
+            && matches!(conn, Conn::Live(_))
+        {
+            self.toast(ToastKind::Ok, self.s.live_sse);
         }
         if applied.new_messages > 0 {
             self.chat_cache = None;
@@ -532,23 +534,24 @@ impl App {
         if let Event::Doc { doc, additions, deletions, initial } = &event {
             self.doc_cache = None;
             if !initial {
-                if let Some(who) = &applied.doc_changed_by {
-                    if *who != self.state.my_nick {
-                        self.toast(
-                            ToastKind::Info,
-                            fmt(self.s.doc_remote, &[("who", who), ("a", &additions.to_string()), ("d", &deletions.to_string())]),
-                        );
-                    }
+                if let Some(who) = &applied.doc_changed_by
+                    && *who != self.state.my_nick
+                {
+                    self.toast(
+                        ToastKind::Info,
+                        fmt(self.s.doc_remote, &[("who", who), ("a", &additions.to_string()), ("d", &deletions.to_string())]),
+                    );
                 }
-                if let Mode::Editor(editor) = &mut self.mode {
-                    if doc.updated_at != editor.base_updated_at && applied.doc_changed_by.as_deref() != Some(self.state.my_nick.as_str()) {
-                        editor.remote = Some(RemoteChange {
-                            who: doc.editor.clone().unwrap_or_else(|| "?".into()),
-                            version: doc.version,
-                            content: doc.content.clone(),
-                            updated_at: doc.updated_at,
-                        });
-                    }
+                if let Mode::Editor(editor) = &mut self.mode
+                    && doc.updated_at != editor.base_updated_at
+                    && applied.doc_changed_by.as_deref() != Some(self.state.my_nick.as_str())
+                {
+                    editor.remote = Some(RemoteChange {
+                        who: doc.editor.clone().unwrap_or_else(|| "?".into()),
+                        version: doc.version,
+                        content: doc.content.clone(),
+                        updated_at: doc.updated_at,
+                    });
                 }
             }
         }
@@ -750,7 +753,7 @@ impl App {
         let sending = self.pending.iter().any(|p| p.state == SendState::Sending);
         let busy = matches!(&self.mode, Mode::Editor(e) if e.saving || !e.loaded);
         // keep the expiry countdown fresh once a second
-        if self.toasts.len() != before || has_uploads || sending || busy || self.spinner % 2 == 0 {
+        if self.toasts.len() != before || has_uploads || sending || busy || self.spinner.is_multiple_of(2) {
             self.dirty = true;
         }
         self.pending.retain(|p| !(matches!(p.state, SendState::Sent(_)) && now.duration_since(p.at) > Duration::from_secs(8)));
@@ -787,7 +790,13 @@ impl App {
         self.send_times.push_back(Instant::now());
         let id = self.next_id;
         self.next_id += 1;
-        self.pending.push(Pending { id, text: text.clone(), state: SendState::Sending, at: Instant::now(), ts_ms: fw_core::config::now_ms() });
+        self.pending.push(Pending {
+            id,
+            text: text.clone(),
+            state: SendState::Sending,
+            at: Instant::now(),
+            ts_ms: fw_core::config::now_ms(),
+        });
         self.chat_scroll = 0;
         self.unread = 0;
         self.first_unread_seq = None;
@@ -810,11 +819,11 @@ impl App {
         if text.trim().is_empty() {
             return;
         }
-        if let Some(rest) = text.trim().strip_prefix('/') {
-            if self.run_slash(rest) {
-                self.clear_composer();
-                return;
-            }
+        if let Some(rest) = text.trim().strip_prefix('/')
+            && self.run_slash(rest)
+        {
+            self.clear_composer();
+            return;
         }
         self.sent_history.push(text.clone());
         self.hist_pos = None;
@@ -841,7 +850,13 @@ impl App {
                 if arg.is_empty() {
                     self.run_cmd(Cmd::SendFile);
                 } else {
-                    self.modals.push(Modal::FilePrompt { input: LineInput::with(&arg), burn: true, error: None, completions: vec![], comp_idx: 0 });
+                    self.modals.push(Modal::FilePrompt {
+                        input: LineInput::with(&arg),
+                        burn: true,
+                        error: None,
+                        completions: vec![],
+                        comp_idx: 0,
+                    });
                 }
             }
             "share" => self.run_cmd(Cmd::Share),
@@ -879,7 +894,13 @@ impl App {
                 self.refresh_doc();
                 self.modals.push(Modal::History { selected: 0, diff_scroll: 0 });
             }
-            Cmd::SendFile => self.modals.push(Modal::FilePrompt { input: LineInput::default(), burn: true, error: None, completions: vec![], comp_idx: 0 }),
+            Cmd::SendFile => self.modals.push(Modal::FilePrompt {
+                input: LineInput::default(),
+                burn: true,
+                error: None,
+                completions: vec![],
+                comp_idx: 0,
+            }),
             Cmd::Files => self.modals.push(Modal::Files { selected: 0 }),
             Cmd::Share => self.modals.push(Modal::Share { selected: 0 }),
             Cmd::Moderation => {
@@ -938,11 +959,11 @@ impl App {
                 self.tab = Tab::People;
             }
             Cmd::Quit => {
-                if let Mode::Editor(e) = &self.mode {
-                    if editor_dirty(e) {
-                        self.modals.push(Modal::Confirm { kind: ConfirmKind::DiscardEditor, text: self.s.discard_body.into() });
-                        return;
-                    }
+                if let Mode::Editor(e) = &self.mode
+                    && editor_dirty(e)
+                {
+                    self.modals.push(Modal::Confirm { kind: ConfirmKind::DiscardEditor, text: self.s.discard_body.into() });
+                    return;
                 }
                 self.modals.push(Modal::Confirm { kind: ConfirmKind::Quit, text: self.s.quit_body.into() });
             }
@@ -1125,7 +1146,9 @@ impl App {
             KeyCode::Down if popup => self.mention_sel = (self.mention_sel + 1).min(names.len().saturating_sub(1)),
             KeyCode::Up if self.composer.lines().len() <= 1 => self.history_prev(),
             KeyCode::Down if self.composer.lines().len() <= 1 && self.hist_pos.is_some() => self.history_next(),
-            KeyCode::Char('r') if !ctrl && self.composer_text().is_empty() && self.pending.iter().any(|p| matches!(p.state, SendState::Failed(_))) => {
+            KeyCode::Char('r')
+                if !ctrl && self.composer_text().is_empty() && self.pending.iter().any(|p| matches!(p.state, SendState::Failed(_))) =>
+            {
                 self.retry_failed();
             }
             _ => {
@@ -1424,7 +1447,13 @@ impl App {
 
     fn filtered_cmds(&self, filter: &str) -> Vec<Cmd> {
         let needle = filter.to_lowercase();
-        ALL_CMDS.iter().copied().enumerate().filter(|(i, _)| needle.is_empty() || self.s.cmds[*i].to_lowercase().contains(&needle)).map(|(_, c)| c).collect()
+        ALL_CMDS
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(i, _)| needle.is_empty() || self.s.cmds[*i].to_lowercase().contains(&needle))
+            .map(|(_, c)| c)
+            .collect()
     }
 
     pub fn search_results(&self, query: &str) -> Vec<usize> {
@@ -1511,7 +1540,10 @@ impl App {
                         let sel = *selected;
                         if let Some(rev) = self.state.doc.history.iter().rev().nth(sel) {
                             let v = rev.version;
-                            self.modals.push(Modal::Confirm { kind: ConfirmKind::Rollback(v), text: fmt(self.s.rollback_confirm, &[("v", &v.to_string())]) });
+                            self.modals.push(Modal::Confirm {
+                                kind: ConfirmKind::Rollback(v),
+                                text: fmt(self.s.rollback_confirm, &[("v", &v.to_string())]),
+                            });
                         }
                     }
                     KeyCode::Char('e') => {
@@ -1574,7 +1606,8 @@ impl App {
                         self.save_editor(SaveKind::Overwrite, Some(theirs_ts), Some(mine));
                     }
                     KeyCode::Char('l') | KeyCode::Char('L') => {
-                        let name = format!("4w-doc-{}-mine-{}.md", crate::util::room_slug(self.client.room()), fw_core::config::now_ms() / 1000);
+                        let name =
+                            format!("4w-doc-{}-mine-{}.md", crate::util::room_slug(self.client.room()), fw_core::config::now_ms() / 1000);
                         match std::fs::write(&name, mine) {
                             Ok(()) => self.toast(ToastKind::Ok, fmt(self.s.saved_to, &[("path", &name)])),
                             Err(e) => self.toast(ToastKind::Err, fmt(self.s.save_failed, &[("reason", &e.to_string())])),
@@ -1630,30 +1663,28 @@ impl App {
                     }
                 }
             },
-            Modal::Files { selected } => {
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('q') => self.close_modal(),
-                    KeyCode::Up | KeyCode::Char('k') => *selected = selected.saturating_sub(1),
-                    KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1).min(files.len().saturating_sub(1)),
-                    KeyCode::Char('y') => {
-                        let sel = *selected;
-                        if let Some(url) = files.get(sel).and_then(|i| self.state.messages.get(*i)).and_then(|m| m.file_url.clone()) {
-                            self.copy_text("file link", url);
-                        }
+            Modal::Files { selected } => match key.code {
+                KeyCode::Esc | KeyCode::Char('q') => self.close_modal(),
+                KeyCode::Up | KeyCode::Char('k') => *selected = selected.saturating_sub(1),
+                KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1).min(files.len().saturating_sub(1)),
+                KeyCode::Char('y') => {
+                    let sel = *selected;
+                    if let Some(url) = files.get(sel).and_then(|i| self.state.messages.get(*i)).and_then(|m| m.file_url.clone()) {
+                        self.copy_text("file link", url);
                     }
-                    KeyCode::Enter => {
-                        let sel = *selected;
-                        if let Some(m) = files.get(sel).and_then(|i| self.state.messages.get(*i)) {
-                            let url = m.file_url.clone().unwrap_or_default();
-                            let name = m.filename.clone().unwrap_or_else(|| crate::util::file_name_from_url(&url));
-                            let dir = crate::util::downloads_dir();
-                            let target = format!("{}/{}", dir.trim_end_matches('/'), crate::util::safe_name(&name));
-                            self.modals.push(Modal::Download { url, input: LineInput::with(&target), burn_note: true });
-                        }
-                    }
-                    _ => {}
                 }
-            }
+                KeyCode::Enter => {
+                    let sel = *selected;
+                    if let Some(m) = files.get(sel).and_then(|i| self.state.messages.get(*i)) {
+                        let url = m.file_url.clone().unwrap_or_default();
+                        let name = m.filename.clone().unwrap_or_else(|| crate::util::file_name_from_url(&url));
+                        let dir = crate::util::downloads_dir();
+                        let target = format!("{}/{}", dir.trim_end_matches('/'), crate::util::safe_name(&name));
+                        self.modals.push(Modal::Download { url, input: LineInput::with(&target), burn_note: true });
+                    }
+                }
+                _ => {}
+            },
             Modal::Download { url, input, .. } => match key.code {
                 KeyCode::Esc => self.close_modal(),
                 KeyCode::Enter => {
@@ -1670,7 +1701,11 @@ impl App {
                 KeyCode::Esc | KeyCode::Char('q') => self.close_modal(),
                 KeyCode::Tab => *in_bans = !*in_bans,
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if *in_bans { *ban = ban.saturating_sub(1) } else { *person = person.saturating_sub(1) }
+                    if *in_bans {
+                        *ban = ban.saturating_sub(1)
+                    } else {
+                        *person = person.saturating_sub(1)
+                    }
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     if *in_bans {
@@ -1683,10 +1718,10 @@ impl App {
                 KeyCode::Char('v') => self.moderate("verify", None, None),
                 KeyCode::Char('b') => {
                     let target = self.state.sorted_participants().get(*person_index(&self.modals)).map(|p| p.nick.clone());
-                    if let Some(nick) = target {
-                        if nick != self.state.my_nick {
-                            self.moderate("ban", Some(nick), None);
-                        }
+                    if let Some(nick) = target
+                        && nick != self.state.my_nick
+                    {
+                        self.moderate("ban", Some(nick), None);
                     }
                 }
                 KeyCode::Char('u') => {

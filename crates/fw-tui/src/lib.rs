@@ -65,7 +65,11 @@ pub async fn run_room(launch: RoomLaunch) -> Result<()> {
     let owner_key = launch.owner_admin_key.or_else(|| vault::admin_key_for(&room));
     let mut term = term::Term::enter(launch.mouse)?;
     let (msg_tx, mut msg_rx) = unbounded_channel::<AppMsg>();
-    let mut app = App::new(launch.client.clone(), msg_tx, AppConfig { owner_admin_key: owner_key, llm_key, mouse: launch.mouse });
+    let mut app = App::new(
+        launch.client.clone(),
+        msg_tx,
+        AppConfig { owner_admin_key: owner_key, llm_key, mouse: launch.mouse, persist_settings: true },
+    );
     let mut session = fw_room::start(launch.client, launch.sync);
     app.control = Some(session.control());
     let (dummy_tx, dummy_rx) = unbounded_channel();
@@ -94,12 +98,11 @@ pub async fn run_room(launch: RoomLaunch) -> Result<()> {
                 }
             }
             Some(ev) = events.recv() => {
-                if !remembered {
-                    if let Event::Ready(info) = &ev {
+                if !remembered
+                    && let Event::Ready(info) = &ev {
                         remember_room(info.link.as_deref().unwrap_or(&info.room));
                         remembered = true;
                     }
-                }
                 app.on_engine_event(ev);
                 while let Ok(more) = events.try_recv() {
                     app.on_engine_event(more);

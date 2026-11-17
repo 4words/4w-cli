@@ -6,7 +6,7 @@ use fw_core::lang::trs;
 use fw_core::mcp::Mcp;
 use fw_core::sanitize::text_safe;
 use fw_core::{Error, Result};
-use fw_room::{Auth, Conn, Event, RoomClient, Role, SyncOptions, TransportMode};
+use fw_room::{Auth, Conn, Event, Role, RoomClient, SyncOptions, TransportMode};
 use serde_json::{Value, json};
 use std::io::Write;
 
@@ -115,9 +115,8 @@ pub fn parse(rest: &[String]) -> Result<(WatchOptions, bool)> {
     let since = parse_non_negative_int(p.get("since"), "--since")?.unwrap_or(0);
     let transport = parse_transport(p.get("transport"))?;
     let resolved = LlmFlags::from(&p).resolve(Some(&room))?;
-    let pick = |name: &str| {
-        resolved.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_ref()).and_then(Value::as_str).map(str::to_string)
-    };
+    let pick =
+        |name: &str| resolved.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_ref()).and_then(Value::as_str).map(str::to_string);
     let auth = Auth { llm_key: pick("llm_key"), llm_name: pick("llm_name") };
     let admin_key = match p.get("admin-key-file") {
         Some(path) => Some(fw_core::secrets::read_secret_file(path, "--admin-key-file")?.to_string()),
@@ -168,7 +167,9 @@ async fn stream_jsonl(opts: WatchOptions) -> Result<()> {
             }
         };
         #[cfg(not(unix))]
-        let signal = async { let _ = tokio::signal::ctrl_c().await; };
+        let signal = async {
+            let _ = tokio::signal::ctrl_c().await;
+        };
         tokio::select! {
             _ = signal => break,
             event = session.events.recv() => {
@@ -224,7 +225,14 @@ pub async fn create_and_open(rest: &[String]) -> Result<Option<crate::commands::
     let mcp = Mcp::new(None)?;
     mcp.ensure_ready(false).await?;
     let client = RoomClient::new(mcp, link.clone(), Auth::default());
-    fw_tui::run_room(fw_tui::RoomLaunch { client, sync: SyncOptions::default(), mouse: true, owner_admin_key: admin, vault_link: Some(link.clone()) }).await?;
+    fw_tui::run_room(fw_tui::RoomLaunch {
+        client,
+        sync: SyncOptions::default(),
+        mouse: true,
+        owner_admin_key: admin,
+        vault_link: Some(link.clone()),
+    })
+    .await?;
     println!(
         "{}",
         trs(

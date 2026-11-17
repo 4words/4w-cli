@@ -106,12 +106,8 @@ impl RoomState {
             Event::Presence(list) => {
                 let before: Vec<&str> = self.participants.iter().map(|p| p.nick.as_str()).collect();
                 out.joined = list.iter().filter(|p| !before.contains(&p.nick.as_str())).map(|p| p.nick.clone()).collect();
-                out.left = self
-                    .participants
-                    .iter()
-                    .filter(|old| !list.iter().any(|p| p.nick == old.nick))
-                    .map(|p| p.nick.clone())
-                    .collect();
+                out.left =
+                    self.participants.iter().filter(|old| !list.iter().any(|p| p.nick == old.nick)).map(|p| p.nick.clone()).collect();
                 if !self.participants.is_empty() || !list.is_empty() {
                     out.presence_changed = self.participants != list;
                 }
@@ -174,13 +170,40 @@ mod tests {
     #[test]
     fn presence_diff_and_doc_history_is_kept_across_live_patches() {
         let mut state = RoomState::default();
-        let p = |n: &str, r: Role| Participant { nick: n.into(), role: r, via: vec![], model: None, status: None, status_detail: None, status_since: None };
+        let p = |n: &str, r: Role| Participant {
+            nick: n.into(),
+            role: r,
+            via: vec![],
+            model: None,
+            status: None,
+            status_detail: None,
+            status_since: None,
+        };
         state.apply(Event::Presence(vec![p("a", Role::Human)]));
         let a = state.apply(Event::Presence(vec![p("a", Role::Human), p("b", Role::Llm)]));
         assert_eq!((a.joined, a.left), (vec!["b".to_string()], vec![]));
-        let rev = crate::model::Revision { version: 1, nick: "a".into(), ts: 1, content: "x".into(), additions: 1, deletions: 0, rollback_from: None, export_url: None };
-        state.apply(Event::Doc { doc: Doc { content: "x".into(), version: 1, updated_at: 5, history: vec![rev], ..Default::default() }, initial: true, additions: 0, deletions: 0 });
-        let a = state.apply(Event::Doc { doc: Doc { content: "y".into(), version: 2, updated_at: 9, editor: Some("b".into()), ..Default::default() }, initial: false, additions: 1, deletions: 1 });
+        let rev = crate::model::Revision {
+            version: 1,
+            nick: "a".into(),
+            ts: 1,
+            content: "x".into(),
+            additions: 1,
+            deletions: 0,
+            rollback_from: None,
+            export_url: None,
+        };
+        state.apply(Event::Doc {
+            doc: Doc { content: "x".into(), version: 1, updated_at: 5, history: vec![rev], ..Default::default() },
+            initial: true,
+            additions: 0,
+            deletions: 0,
+        });
+        let a = state.apply(Event::Doc {
+            doc: Doc { content: "y".into(), version: 2, updated_at: 9, editor: Some("b".into()), ..Default::default() },
+            initial: false,
+            additions: 1,
+            deletions: 1,
+        });
         assert_eq!(a.doc_changed_by.as_deref(), Some("b"));
         assert_eq!(state.doc.history.len(), 1, "live patch keeps the known history");
     }

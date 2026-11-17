@@ -21,8 +21,7 @@ impl SseParser {
     pub fn push(&mut self, bytes: &[u8]) -> Vec<SseEvent> {
         self.buffer.extend_from_slice(bytes);
         let mut events = Vec::new();
-        loop {
-            let Some((end, sep_len)) = find_separator(&self.buffer) else { break };
+        while let Some((end, sep_len)) = find_separator(&self.buffer) {
             let block: Vec<u8> = self.buffer.drain(..end + sep_len).collect();
             if let Some(event) = parse_block(&block[..end]) {
                 events.push(event);

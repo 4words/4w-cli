@@ -136,7 +136,6 @@ fn print_output(output: Output) -> Result<()> {
     }
 }
 
-
 /// Home screen loop: pick an action, open rooms in the workspace, come back to the hub afterwards.
 async fn launch_hub() -> Result<()> {
     use fw_room::{Auth, RoomClient, SyncOptions};

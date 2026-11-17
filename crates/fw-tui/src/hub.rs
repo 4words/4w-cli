@@ -152,7 +152,10 @@ static PT: HubStrings = HubStrings {
     open_room: ("Abrir uma sala…", "Entre em qualquer sala pelo link ou pelo código de quatro palavras."),
     recent_desc: "Reabra esta sala das últimas 24 horas.",
     publish_text: ("Publicar texto", "Compartilhe texto ou Markdown com um link de quatro palavras. Leitura única ligada por padrão."),
-    publish_file: ("Publicar arquivo", "Compartilhe um arquivo de até 24 MiB (ou 1 GiB em streaming). Criptografia ponta a ponta opcional."),
+    publish_file: (
+        "Publicar arquivo",
+        "Compartilhe um arquivo de até 24 MiB (ou 1 GiB em streaming). Criptografia ponta a ponta opcional.",
+    ),
     fetch: ("Buscar um link", "Leia ou baixe um link de quatro palavras; descriptografa com o segredo #key=."),
     delete: ("Destruir conteúdo", "Apague imediatamente um conteúdo usando o delete_url secreto."),
     vault: ("Cofre local (24 h)", "Credenciais e links criados recentemente. Segredos ficam ocultos até você revelar."),
@@ -208,7 +211,10 @@ static ES: HubStrings = HubStrings {
     open_room: ("Abrir una sala…", "Entre a cualquier sala con su enlace o código de cuatro palabras."),
     recent_desc: "Reabra esta sala de las últimas 24 horas.",
     publish_text: ("Publicar texto", "Comparta texto o Markdown con un enlace de cuatro palabras. Lectura única activada por defecto."),
-    publish_file: ("Publicar archivo", "Comparta un archivo de hasta 24 MiB (o 1 GiB con streaming). Cifrado de extremo a extremo opcional."),
+    publish_file: (
+        "Publicar archivo",
+        "Comparta un archivo de hasta 24 MiB (o 1 GiB con streaming). Cifrado de extremo a extremo opcional.",
+    ),
     fetch: ("Obtener un enlace", "Lea o descargue un enlace de cuatro palabras; descifra con el secreto #key=."),
     delete: ("Destruir contenido", "Elimine de inmediato un contenido con su delete_url secreto."),
     vault: ("Bóveda local (24 h)", "Credenciales y enlaces creados recientemente. Los secretos quedan ocultos hasta que los revele."),
@@ -359,7 +365,13 @@ fn field(id: &'static str, label: &str, hint: &str, kind: Kind, required: bool, 
 
 fn ago(ms: u64, s: &HubStrings) -> String {
     let secs = fw_core::config::now_ms().saturating_sub(ms) / 1000;
-    let t = if secs >= 3600 { format!("{}h", secs / 3600) } else if secs >= 60 { format!("{}m", secs / 60) } else { format!("{secs}s") };
+    let t = if secs >= 3600 {
+        format!("{}h", secs / 3600)
+    } else if secs >= 60 {
+        format!("{}m", secs / 60)
+    } else {
+        format!("{secs}s")
+    };
     fmt(s.ago, &[("t", &t)])
 }
 
@@ -457,7 +469,9 @@ impl Hub {
                 field("key", s.f_key, opt, Kind::Line, false, false),
             ],
             Act::Delete => vec![field("delete_url", s.f_delete_url, "https://4words.aletheia.land/d/…", Kind::Line, true, false)],
-            Act::Update => vec![field("check", s.f_check, "", Kind::Toggle, false, true), field("force", s.f_force, "", Kind::Toggle, false, false)],
+            Act::Update => {
+                vec![field("check", s.f_check, "", Kind::Toggle, false, true), field("force", s.f_force, "", Kind::Toggle, false, false)]
+            }
             _ => vec![],
         };
         self.screen = Screen::Form(Form { act, title: title.into(), fields, focus: 0, error: None, tool: None });
@@ -519,7 +533,15 @@ impl Hub {
                 .unwrap_or_default()
         };
         let on = |id: &str| form.fields.iter().find(|f| f.id == id).is_some_and(|f| f.on);
-        if let Some(missing) = form.fields.iter().position(|f| f.required && (match f.kind { Kind::Multi => f.area.lines().join("\n"), _ => f.line.text.clone() }).trim().is_empty()) {
+        if let Some(missing) = form.fields.iter().position(|f| {
+            f.required
+                && (match f.kind {
+                    Kind::Multi => f.area.lines().join("\n"),
+                    _ => f.line.text.clone(),
+                })
+                .trim()
+                .is_empty()
+        }) {
             form.focus = missing;
             form.error = Some(fmt(s.required, &[("label", &form.fields[missing].label)]));
             self.dirty = true;
@@ -577,7 +599,8 @@ impl Hub {
             }
             Act::Delete => {
                 let url = get("delete_url").trim().to_string();
-                let back = Viewer { title: s.delete.0.into(), value: Value::Null, text_cache: None, reveal: false, scroll: 0, error: false };
+                let back =
+                    Viewer { title: s.delete.0.into(), value: Value::Null, text_cache: None, reveal: false, scroll: 0, error: false };
                 self.screen = Screen::Confirm { url, back: Box::new(back) };
                 return;
             }
@@ -617,13 +640,38 @@ impl Hub {
                     self.rebuild();
                 }
                 Err(e) => {
-                    self.screen = Screen::Viewer(Viewer { title: self.s().error.into(), value: Value::String(e.to_string()), text_cache: None, reveal: false, scroll: 0, error: true });
+                    self.screen = Screen::Viewer(Viewer {
+                        title: self.s().error.into(),
+                        value: Value::String(e.to_string()),
+                        text_cache: None,
+                        reveal: false,
+                        scroll: 0,
+                        error: true,
+                    });
                 }
             },
             Msg::Tools(result) => match result {
                 Ok(Value::Array(tools)) if !tools.is_empty() => self.screen = Screen::Mcp { tools, selected: 0 },
-                Ok(_) => self.screen = Screen::Viewer(Viewer { title: self.s().mcp.0.into(), value: Value::String(self.s().mcp_empty.into()), text_cache: None, reveal: false, scroll: 0, error: false }),
-                Err(e) => self.screen = Screen::Viewer(Viewer { title: self.s().error.into(), value: Value::String(e.to_string()), text_cache: None, reveal: false, scroll: 0, error: true }),
+                Ok(_) => {
+                    self.screen = Screen::Viewer(Viewer {
+                        title: self.s().mcp.0.into(),
+                        value: Value::String(self.s().mcp_empty.into()),
+                        text_cache: None,
+                        reveal: false,
+                        scroll: 0,
+                        error: false,
+                    })
+                }
+                Err(e) => {
+                    self.screen = Screen::Viewer(Viewer {
+                        title: self.s().error.into(),
+                        value: Value::String(e.to_string()),
+                        text_cache: None,
+                        reveal: false,
+                        scroll: 0,
+                        error: true,
+                    })
+                }
             },
             Msg::Copied(result, text) => match result {
                 CopyResult::Tool(_) => self.toast(self.s().copied),
@@ -725,7 +773,14 @@ impl Hub {
                 }
                 KeyCode::Char('d') | KeyCode::Char('D') => {
                     if let Some(url) = delete_link(&v.value) {
-                        let back = Viewer { title: v.title.clone(), value: v.value.clone(), text_cache: None, reveal: false, scroll: 0, error: false };
+                        let back = Viewer {
+                            title: v.title.clone(),
+                            value: v.value.clone(),
+                            text_cache: None,
+                            reveal: false,
+                            scroll: 0,
+                            error: false,
+                        };
                         self.screen = Screen::Confirm { url, back: Box::new(back) };
                     }
                 }
@@ -741,7 +796,8 @@ impl Hub {
                     let s = hs(self.lang);
                     let mut f = field("json", s.f_json, "{}", Kind::Multi, false, false);
                     f.area.insert_str("{}");
-                    self.screen = Screen::Form(Form { act: Act::Mcp, title: name.clone(), fields: vec![f], focus: 0, error: None, tool: Some(name) });
+                    self.screen =
+                        Screen::Form(Form { act: Act::Mcp, title: name.clone(), fields: vec![f], focus: 0, error: None, tool: Some(name) });
                 }
                 _ => {}
             },
@@ -769,7 +825,11 @@ impl Hub {
 }
 
 fn public_link(value: &Value) -> Option<String> {
-    ["fourwords_url", "url"].iter().find_map(|k| value.get(*k).and_then(Value::as_str)).filter(|u| u.starts_with("http")).map(|u| u.to_string())
+    ["fourwords_url", "url"]
+        .iter()
+        .find_map(|k| value.get(*k).and_then(Value::as_str))
+        .filter(|u| u.starts_with("http"))
+        .map(|u| u.to_string())
 }
 
 fn delete_link(value: &Value) -> Option<String> {
@@ -781,7 +841,11 @@ fn delete_link(value: &Value) -> Option<String> {
 fn block<'a>(th: &Theme, title: &str, focused: bool) -> Block<'a> {
     let style = if focused { th.border_focus } else { th.border };
     let bt = if th.unicode { BorderType::Rounded } else { BorderType::Plain };
-    Block::bordered().border_type(bt).border_style(style).title(Line::from(vec![Span::raw(" "), Span::styled(title.to_string(), if focused { th.accent } else { th.dim }), Span::raw(" ")]))
+    Block::bordered().border_type(bt).border_style(style).title(Line::from(vec![
+        Span::raw(" "),
+        Span::styled(title.to_string(), if focused { th.accent } else { th.dim }),
+        Span::raw(" "),
+    ]))
 }
 
 fn draw(f: &mut Frame, hub: &mut Hub) {
@@ -817,7 +881,8 @@ fn draw(f: &mut Frame, hub: &mut Hub) {
             let inner = b.inner(rows[1]);
             f.render_widget(b, rows[1]);
             let masked = fw_core::sanitize::mask_secrets(url, hub.lang);
-            let lines = vec![Line::styled(format!(" {masked}"), th.dim), Line::default(), Line::styled(format!(" {}", s.confirm_delete), th.warn)];
+            let lines =
+                vec![Line::styled(format!(" {masked}"), th.dim), Line::default(), Line::styled(format!(" {}", s.confirm_delete), th.warn)];
             f.render_widget(Paragraph::new(lines), inner);
         }
     }
@@ -833,14 +898,21 @@ fn draw(f: &mut Frame, hub: &mut Hub) {
         Screen::Mcp { .. } => "↑↓ Navigate   Enter Call   Esc Back",
         _ => "Esc Back",
     };
-    f.render_widget(Paragraph::new(footer.unwrap_or_else(|| Line::styled(format!(" {}", clip_text(hint, area.width as usize - 1, "…")), th.dim))), rows[2]);
+    f.render_widget(
+        Paragraph::new(footer.unwrap_or_else(|| Line::styled(format!(" {}", clip_text(hint, area.width as usize - 1, "…")), th.dim))),
+        rows[2],
+    );
 }
 
 fn draw_menu(f: &mut Frame, hub: &Hub, area: Rect) {
     let th = &hub.theme;
     let s = hub.s();
     let wide = area.width >= 82;
-    let cols = if wide { Layout::horizontal([Constraint::Length(36), Constraint::Min(20)]).split(area) } else { Layout::horizontal([Constraint::Min(10)]).split(area) };
+    let cols = if wide {
+        Layout::horizontal([Constraint::Length(36), Constraint::Min(20)]).split(area)
+    } else {
+        Layout::horizontal([Constraint::Min(10)]).split(area)
+    };
     let b = block(th, s.menu, true);
     let inner = b.inner(cols[0]);
     f.render_widget(b, cols[0]);
@@ -858,8 +930,18 @@ fn draw_menu(f: &mut Frame, hub: &Hub, area: Rect) {
             Item::Recent(entry) => {
                 let link = entry.link().unwrap_or("?");
                 let short = crate::util::room_slug(link);
-                let owner = if entry.admin_key.is_some() || vault::admin_key_for(link).is_some() { format!(" [{}]", s.owner) } else { String::new() };
-                let text = format!(" {} ↪ {} · {}{}", if i == hub.sel { "›" } else { " " }, clip_text(&short, 22, "…"), ago(entry.created_at, s), owner);
+                let owner = if entry.admin_key.is_some() || vault::admin_key_for(link).is_some() {
+                    format!(" [{}]", s.owner)
+                } else {
+                    String::new()
+                };
+                let text = format!(
+                    " {} ↪ {} · {}{}",
+                    if i == hub.sel { "›" } else { " " },
+                    clip_text(&short, 22, "…"),
+                    ago(entry.created_at, s),
+                    owner
+                );
                 lines.push(Line::styled(text, if i == hub.sel { th.selected } else { th.text }));
             }
         }
@@ -874,7 +956,9 @@ fn draw_menu(f: &mut Frame, hub: &Hub, area: Rect) {
                 let (t, d) = hub.act_info(*act);
                 (t.to_string(), d.to_string(), String::new())
             }
-            Some(Item::Recent(e)) => (crate::util::room_slug(e.link().unwrap_or("")), s.recent_desc.to_string(), e.link().unwrap_or("").to_string()),
+            Some(Item::Recent(e)) => {
+                (crate::util::room_slug(e.link().unwrap_or("")), s.recent_desc.to_string(), e.link().unwrap_or("").to_string())
+            }
             _ => (String::new(), String::new(), String::new()),
         };
         let mut lines = vec![Line::styled(format!(" {title}"), th.accent), Line::default()];
@@ -901,9 +985,18 @@ fn draw_form(f: &mut Frame, hub: &mut Hub, area: Rect) {
     let last = form.fields.len();
     let focus = form.focus;
     // first visible field: keep the focused one on screen
-    let heights: Vec<u16> = form.fields.iter().map(|f| match f.kind { Kind::Multi => 7, _ => 3 }).collect();
+    let heights: Vec<u16> = form
+        .fields
+        .iter()
+        .map(|f| match f.kind {
+            Kind::Multi => 7,
+            _ => 3,
+        })
+        .collect();
     let mut start = 0usize;
-    while start < focus.min(last.saturating_sub(1)) && heights[start..=focus.min(last.saturating_sub(1))].iter().sum::<u16>() + 2 > inner.height {
+    while start < focus.min(last.saturating_sub(1))
+        && heights[start..=focus.min(last.saturating_sub(1))].iter().sum::<u16>() + 2 > inner.height
+    {
         start += 1;
     }
     for (i, field) in form.fields.iter_mut().enumerate().skip(start) {
@@ -913,19 +1006,31 @@ fn draw_form(f: &mut Frame, hub: &mut Hub, area: Rect) {
         }
         let focused = i == focus;
         let label = format!("{}{}", field.label, if field.required { " *" } else { "" });
-        f.render_widget(Paragraph::new(Line::styled(format!(" {label}"), if focused { th.accent } else { th.dim })), Rect { x: inner.x, y, width: inner.width, height: 1 });
+        f.render_widget(
+            Paragraph::new(Line::styled(format!(" {label}"), if focused { th.accent } else { th.dim })),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
         let body = Rect { x: inner.x + 1, y: y + 1, width: inner.width.saturating_sub(2), height: h - 1 };
         match field.kind {
             Kind::Toggle => {
                 let text = format!("{} {}", if field.on { "[x]" } else { "[ ]" }, if field.on { "on" } else { "off" });
-                f.render_widget(Paragraph::new(Line::styled(text, if focused { th.selected } else { th.text })), Rect { height: 1, ..body });
+                f.render_widget(
+                    Paragraph::new(Line::styled(text, if focused { th.selected } else { th.text })),
+                    Rect { height: 1, ..body },
+                );
             }
             Kind::Line => {
-                let line = if field.line.text.is_empty() && !focused { Line::styled(field.hint.clone(), th.dim) } else { line_with_cursor(&field.line, &th, focused) };
+                let line = if field.line.text.is_empty() && !focused {
+                    Line::styled(field.hint.clone(), th.dim)
+                } else {
+                    line_with_cursor(&field.line, &th, focused)
+                };
                 f.render_widget(Paragraph::new(line), Rect { height: 1, ..body });
             }
             Kind::Multi => {
-                let bb = Block::bordered().border_type(if th.unicode { BorderType::Rounded } else { BorderType::Plain }).border_style(if focused { th.border_focus } else { th.border });
+                let bb = Block::bordered()
+                    .border_type(if th.unicode { BorderType::Rounded } else { BorderType::Plain })
+                    .border_style(if focused { th.border_focus } else { th.border });
                 let ib = bb.inner(body);
                 f.render_widget(bb, body);
                 field.area.set_cursor_style(if focused { Style::default().add_modifier(Modifier::REVERSED) } else { Style::default() });
@@ -936,10 +1041,17 @@ fn draw_form(f: &mut Frame, hub: &mut Hub, area: Rect) {
     }
     let submit_style = if focus == last { th.selected } else { th.accent };
     let by = bottom.saturating_sub(1);
-    let status = form.error.clone().map(|e| Line::styled(format!(" {e}"), th.err)).unwrap_or_else(|| Line::styled(format!(" › {} (Ctrl+S)", s.submit), submit_style));
+    let status = form
+        .error
+        .clone()
+        .map(|e| Line::styled(format!(" {e}"), th.err))
+        .unwrap_or_else(|| Line::styled(format!(" › {} (Ctrl+S)", s.submit), submit_style));
     f.render_widget(Paragraph::new(status), Rect { x: inner.x, y: by, width: inner.width, height: 1 });
     if form.error.is_some() {
-        f.render_widget(Paragraph::new(Line::styled(format!(" › {}", s.submit), submit_style)), Rect { x: inner.x, y: by.saturating_sub(1), width: inner.width, height: 1 });
+        f.render_widget(
+            Paragraph::new(Line::styled(format!(" › {}", s.submit), submit_style)),
+            Rect { x: inner.x, y: by.saturating_sub(1), width: inner.width, height: 1 },
+        );
     }
 }
 
@@ -957,7 +1069,13 @@ fn draw_viewer(f: &mut Frame, hub: &mut Hub, area: Rect) {
     let s = hub.s();
     let lang = hub.lang;
     let Screen::Viewer(v) = &mut hub.screen else { return };
-    let status = if v.error { s.error } else if v.reveal { s.credentials_visible } else { s.response };
+    let status = if v.error {
+        s.error
+    } else if v.reveal {
+        s.credentials_visible
+    } else {
+        s.response
+    };
     let b = block(&th, &format!("{status} · {}", v.title), true);
     let inner = b.inner(area);
     f.render_widget(b, area);
@@ -1000,7 +1118,11 @@ fn draw_mcp(f: &mut Frame, hub: &Hub, area: Rect) {
         .map(|(i, t)| {
             let name = clean_line(t.get("name").and_then(Value::as_str).unwrap_or("?"));
             let desc = clean_line(t.get("title").or_else(|| t.get("description")).and_then(Value::as_str).unwrap_or(""));
-            let text = format!(" {} {name}  {}", if i == *selected { "›" } else { " " }, clip_text(&desc, (inner.width as usize).saturating_sub(name.len() + 8), "…"));
+            let text = format!(
+                " {} {name}  {}",
+                if i == *selected { "›" } else { " " },
+                clip_text(&desc, (inner.width as usize).saturating_sub(name.len() + 8), "…")
+            );
             Line::styled(text, if i == *selected { th.selected } else { th.text })
         })
         .collect();

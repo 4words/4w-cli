@@ -47,9 +47,15 @@ pub fn parse(args: &[String], spec: &[Opt]) -> Result<Parsed> {
     let find_short = |c: char| spec.iter().find(|o| o.short == Some(c));
     let unknown = |token: &str| {
         Error::usage(trs(
-            format!("Unknown option '{token}'. To specify a positional argument starting with a '-', place it at the end of the command after '--', e.g. '-- {token}'."),
-            format!("Opção desconhecida '{token}'. Para passar um argumento posicional iniciado por '-', coloque-o no final do comando após '--', por exemplo '-- {token}'."),
-            format!("Opción desconocida '{token}'. Para pasar un argumento posicional que empiece por '-', colóquelo al final del comando tras '--', por ejemplo '-- {token}'."),
+            format!(
+                "Unknown option '{token}'. To specify a positional argument starting with a '-', place it at the end of the command after '--', e.g. '-- {token}'."
+            ),
+            format!(
+                "Opção desconhecida '{token}'. Para passar um argumento posicional iniciado por '-', coloque-o no final do comando após '--', por exemplo '-- {token}'."
+            ),
+            format!(
+                "Opción desconocida '{token}'. Para pasar un argumento posicional que empiece por '-', colóquelo al final del comando tras '--', por ejemplo '-- {token}'."
+            ),
         ))
     };
     let missing = |token: &str| {

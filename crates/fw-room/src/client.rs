@@ -80,10 +80,8 @@ impl RoomClient {
         if let Some(name) = &self.auth.llm_name {
             map.insert("llm_name".into(), Value::String(name.clone()));
         }
-        if with_nick {
-            if let Some(nick) = self.nick() {
-                map.insert("nick".into(), Value::String(nick));
-            }
+        if with_nick && let Some(nick) = self.nick() {
+            map.insert("nick".into(), Value::String(nick));
         }
         map
     }
@@ -105,11 +103,7 @@ impl RoomClient {
     }
 
     pub async fn wait(&self, since: u64, since_doc: u64, timeout_secs: u64) -> Result<Value> {
-        let mut extra = vec![
-            ("since", json!(since)),
-            ("timeout_seconds", json!(timeout_secs)),
-            ("mentions_only", json!(false)),
-        ];
+        let mut extra = vec![("since", json!(since)), ("timeout_seconds", json!(timeout_secs)), ("mentions_only", json!(false))];
         if since_doc > 0 {
             extra.push(("since_doc_ts", json!(since_doc)));
         }
@@ -123,10 +117,7 @@ impl RoomClient {
 
     pub async fn send(&self, text: &str) -> Result<Sent> {
         let out = self.mcp.call("chat_send", self.with(true, vec![("text", json!(text))])).await?;
-        Ok(Sent {
-            seq: out.get("seq").and_then(Value::as_u64).unwrap_or(0),
-            nick: out.get("nick").and_then(Value::as_str).map(clean_line),
-        })
+        Ok(Sent { seq: out.get("seq").and_then(Value::as_u64).unwrap_or(0), nick: out.get("nick").and_then(Value::as_str).map(clean_line) })
     }
 
     /// Uploads up to 24 MiB inline (base64) and posts the link in the chat.
@@ -170,10 +161,7 @@ impl RoomClient {
 
     /// Restores a previous revision as a new, non-destructive edit.
     pub async fn rollback(&self, version: u64) -> Result<SaveOutcome> {
-        let out = self
-            .mcp
-            .call_allow_conflict("chat_save_doc", self.with(true, vec![("rollback_to_version", json!(version))]))
-            .await?;
+        let out = self.mcp.call_allow_conflict("chat_save_doc", self.with(true, vec![("rollback_to_version", json!(version))])).await?;
         Ok(Self::outcome(&out))
     }
 
@@ -198,7 +186,8 @@ impl RoomClient {
 
     pub async fn roll_nick(&self) -> Result<String> {
         let out = self.mcp.call("chat_roll_nick", self.with(false, vec![])).await?;
-        let nick = out.get("nick").and_then(Value::as_str).map(clean_line).ok_or_else(|| Error::protocol("chat_roll_nick returned no nick"))?;
+        let nick =
+            out.get("nick").and_then(Value::as_str).map(clean_line).ok_or_else(|| Error::protocol("chat_roll_nick returned no nick"))?;
         self.set_nick(&nick);
         Ok(nick)
     }

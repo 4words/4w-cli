@@ -26,7 +26,9 @@ struct Mock {
 async fn mcp(State(m): State<Mock>, Json(body): Json<Value>) -> impl IntoResponse {
     let id = body["id"].clone();
     let method = body["method"].as_str().unwrap_or("");
-    let reply = |result: Value| (axum::http::StatusCode::OK, [("Mcp-Session-Id", "s")], Json(json!({"jsonrpc":"2.0","id":id,"result":result}))).into_response();
+    let reply = |result: Value| {
+        (axum::http::StatusCode::OK, [("Mcp-Session-Id", "s")], Json(json!({"jsonrpc":"2.0","id":id,"result":result}))).into_response()
+    };
     match method {
         "initialize" => reply(json!({"protocolVersion":"2025-03-26"})),
         "notifications/initialized" => axum::http::StatusCode::ACCEPTED.into_response(),
@@ -44,11 +46,19 @@ async fn mcp(State(m): State<Mock>, Json(body): Json<Value>) -> impl IntoRespons
                 }),
                 "chat_messages" => json!({"messages": [{"seq": 1, "nick": "ana", "ts": 1, "role": "human", "text": "oi"}], "last_seq": 1}),
                 "chat_wait_events" => {
-                    let next = { let mut s = m.wait_script.lock().unwrap(); if s.is_empty() { None } else { Some(s.remove(0)) } };
+                    let next = {
+                        let mut s = m.wait_script.lock().unwrap();
+                        if s.is_empty() { None } else { Some(s.remove(0)) }
+                    };
                     match next {
-                        Some(v) if v.is_number() => return axum::http::StatusCode::from_u16(v.as_u64().unwrap() as u16).unwrap().into_response(),
+                        Some(v) if v.is_number() => {
+                            return axum::http::StatusCode::from_u16(v.as_u64().unwrap() as u16).unwrap().into_response();
+                        }
                         Some(v) => v,
-                        None => { tokio::time::sleep(Duration::from_millis(300)).await; json!({"messages": [], "timed_out": true}) }
+                        None => {
+                            tokio::time::sleep(Duration::from_millis(300)).await;
+                            json!({"messages": [], "timed_out": true})
+                        }
                     }
                 }
                 _ => json!({"ok": true}),
@@ -141,14 +151,26 @@ async fn sse_flow_delivers_backlog_then_live_messages_and_doc_patches() {
     // The stream identifies with our nick.
     mock.sse.send(("msg".into(), json!({"seq": 2, "nick": "bia", "ts": 5, "role": "llm", "text": "ola \u{1b}[31mx"}).to_string())).unwrap();
     mock.sse.send(("msg".into(), json!({"seq": 2, "nick": "bia", "ts": 5, "role": "llm", "text": "dup"}).to_string())).unwrap();
-    mock.sse.send(("doc".into(), json!({"content": "# Novo", "editor": "bia", "ts": 7, "version": 1, "additions": 2, "deletions": 1}).to_string())).unwrap();
+    mock.sse
+        .send((
+            "doc".into(),
+            json!({"content": "# Novo", "editor": "bia", "ts": 7, "version": 1, "additions": 2, "deletions": 1}).to_string(),
+        ))
+        .unwrap();
     let live = feed.next(5, |e| matches!(e, Event::Messages { messages, .. } if messages[0].seq == 2)).await;
     let Event::Messages { messages, .. } = live else { unreachable!() };
     assert!(!messages[0].text.contains('\u{1b}'), "remote escape must be neutralized at ingest");
     let doc = feed.next(5, |e| matches!(e, Event::Doc { initial: false, .. })).await;
     let Event::Doc { doc, additions, deletions, .. } = doc else { unreachable!() };
     assert_eq!((doc.content.as_str(), doc.updated_at, additions, deletions), ("# Novo", 7, 2, 1));
-    let presence = feed.log.iter().find_map(|e| match e { Event::Presence(p) if p.len() == 2 => Some(p.clone()), _ => None }).expect("presence with the agent");
+    let presence = feed
+        .log
+        .iter()
+        .find_map(|e| match e {
+            Event::Presence(p) if p.len() == 2 => Some(p.clone()),
+            _ => None,
+        })
+        .expect("presence with the agent");
     assert_eq!(presence[1].status_detail.as_deref(), Some("sending_reply"));
     feed.session.stop();
 }
@@ -179,4 +201,3 @@ async fn poll_mode_ends_after_persistent_client_errors() {
     let ended = feed.next(15, |e| matches!(e, Event::Conn(Conn::Ended(_)))).await;
     assert!(matches!(ended, Event::Conn(Conn::Ended(reason)) if reason.contains("404")));
 }
-

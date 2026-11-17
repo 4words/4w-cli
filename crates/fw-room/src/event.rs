@@ -21,10 +21,18 @@ pub enum Event {
     /// Joined: identity, link and expiry are known.
     Ready(RoomInfo),
     /// New messages (sorted, de-duplicated by `seq`, already sanitized).
-    Messages { messages: Vec<Message>, mentioned_me: bool },
+    Messages {
+        messages: Vec<Message>,
+        mentioned_me: bool,
+    },
     Presence(Vec<Participant>),
     /// The shared document changed (or was loaded). `history` may be empty for live patches.
-    Doc { doc: Doc, initial: bool, additions: u64, deletions: u64 },
+    Doc {
+        doc: Doc,
+        initial: bool,
+        additions: u64,
+        deletions: u64,
+    },
     Conn(Conn),
     /// Our nickname changed (e.g. `/nick`).
     NickChanged(String),

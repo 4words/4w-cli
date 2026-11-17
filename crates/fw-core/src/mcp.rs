@@ -121,10 +121,10 @@ impl Mcp {
             let state = self.inner.state.lock().await;
             if stateless {
                 request = request.header("MCP-Protocol-Version", STATELESS_PROTOCOL).header("Mcp-Method", method);
-                if method == "tools/call" {
-                    if let Some(name) = params.as_ref().and_then(|p| p.get("name")).and_then(Value::as_str) {
-                        request = request.header("Mcp-Name", name);
-                    }
+                if method == "tools/call"
+                    && let Some(name) = params.as_ref().and_then(|p| p.get("name")).and_then(Value::as_str)
+                {
+                    request = request.header("Mcp-Name", name);
                 }
             } else {
                 if method != "initialize" {
@@ -158,12 +158,11 @@ impl Mcp {
             return Ok(Value::Null);
         }
         let id = id.expect("requests have an id");
-        let is_sse = response
-            .headers()
-            .get("Content-Type")
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|ct| ct.contains("text/event-stream"));
-        let message = if is_sse { read_sse_response(response, id).await? } else {
+        let is_sse =
+            response.headers().get("Content-Type").and_then(|v| v.to_str().ok()).is_some_and(|ct| ct.contains("text/event-stream"));
+        let message = if is_sse {
+            read_sse_response(response, id).await?
+        } else {
             let bytes = http::read_limited(response, MAX_RESPONSE).await?;
             serde_json::from_slice::<Value>(&bytes).map_err(|_| incompatible())?
         };
@@ -350,13 +349,7 @@ impl Mcp {
                 query.append_pair("notify_key", key);
             }
         }
-        let mut request = self
-            .inner
-            .http
-            .put(target)
-            .header("Content-Type", content_type)
-            .timeout(Duration::from_secs(600))
-            .body(body);
+        let mut request = self.inner.http.put(target).header("Content-Type", content_type).timeout(Duration::from_secs(600)).body(body);
         if let Some(len) = len {
             request = request.header("Content-Length", len);
         }
@@ -382,14 +375,12 @@ impl Mcp {
         let Value::Object(mut payload) = serde_json::from_slice::<Value>(&bytes)? else {
             return Err(Error::protocol(trs("Expected a JSON object.", "Esperava um objeto JSON.", "Se esperaba un objeto JSON.")));
         };
-        let delete_url = payload
-            .get("delete_url")
-            .or_else(|| payload.get("deleteUrl"))
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let delete_url = payload.get("delete_url").or_else(|| payload.get("deleteUrl")).and_then(Value::as_str).map(str::to_string);
         let expires_at = match (payload.get("expires_at"), payload.get("expiresAt")) {
             (Some(Value::String(s)), _) => Some(s.clone()),
-            (_, Some(Value::Number(n))) => n.as_i64().and_then(|ms| chrono::DateTime::from_timestamp_millis(ms)).map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            (_, Some(Value::Number(n))) => {
+                n.as_i64().and_then(chrono::DateTime::from_timestamp_millis).map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+            }
             _ => None,
         };
         if let Some(d) = delete_url {
@@ -415,7 +406,11 @@ async fn read_sse_response(response: reqwest::Response, id: u64) -> Result<Value
         let chunk = chunk.map_err(|e| network_error(e, "stream"))?;
         seen += chunk.len();
         if seen > MAX_RESPONSE {
-            return Err(Error::protocol(trs("Response is larger than the allowed limit.", "A resposta excede o limite permitido.", "La respuesta supera el límite permitido.")));
+            return Err(Error::protocol(trs(
+                "Response is larger than the allowed limit.",
+                "A resposta excede o limite permitido.",
+                "La respuesta supera el límite permitido.",
+            )));
         }
         for event in parser.push(&chunk) {
             if let Some(found) = matching(&event.data, id) {
@@ -423,10 +418,10 @@ async fn read_sse_response(response: reqwest::Response, id: u64) -> Result<Value
             }
         }
     }
-    if let Some(event) = parser.finish() {
-        if let Some(found) = matching(&event.data, id) {
-            return Ok(found);
-        }
+    if let Some(event) = parser.finish()
+        && let Some(found) = matching(&event.data, id)
+    {
+        return Ok(found);
     }
     Err(Error::protocol(trs(
         "MCP stream ended without the expected response.",

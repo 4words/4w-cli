@@ -118,7 +118,8 @@ fn signature_error(why: &str) -> Error {
 }
 
 async fn download(url: &str) -> Result<Vec<u8>> {
-    let response = http::client().get(url).timeout(Duration::from_secs(120)).send().await.map_err(|e| http::network_error(e, "installer"))?;
+    let response =
+        http::client().get(url).timeout(Duration::from_secs(120)).send().await.map_err(|e| http::network_error(e, "installer"))?;
     let status = response.status().as_u16();
     if !(200..300).contains(&status) {
         return Err(Error::new(
@@ -192,7 +193,13 @@ async fn run_installer(latest: &str) -> Result<String> {
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
         let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let message = if !stderr.is_empty() { stderr } else if !stdout.is_empty() { stdout } else { format!("Installer exited with code {:?}", out.status.code()) };
+        let message = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            format!("Installer exited with code {:?}", out.status.code())
+        };
         return Err(Error::other(trs(
             format!("Update failed: {message}"),
             format!("Atualização falhou: {message}"),
@@ -215,16 +222,16 @@ pub fn spawn_notice_check() -> Option<tokio::task::JoinHandle<()>> {
     let cfg = config::read();
     let last = cfg.get("last_update_check").and_then(Value::as_u64).unwrap_or(0);
     let cached = cfg.get("cached_latest_version").and_then(Value::as_str).map(str::to_string);
-    if let Some(latest) = &cached {
-        if version::is_newer(latest, fw_core::VERSION) {
-            let current = fw_core::VERSION;
-            let text = match lang::resolve() {
-                Lang::PtBr => format!("[4w aviso] Nova versão disponível ({current} -> {latest}). Execute '4w update' para atualizar."),
-                Lang::Es => format!("[4w aviso] Nueva versión disponible ({current} -> {latest}). Ejecute '4w update' para actualizar."),
-                Lang::En => format!("[4w notice] A new version is available ({current} -> {latest}). Run '4w update' to update."),
-            };
-            eprintln!("\x1b[33m{text}\x1b[0m");
-        }
+    if let Some(latest) = &cached
+        && version::is_newer(latest, fw_core::VERSION)
+    {
+        let current = fw_core::VERSION;
+        let text = match lang::resolve() {
+            Lang::PtBr => format!("[4w aviso] Nova versão disponível ({current} -> {latest}). Execute '4w update' para atualizar."),
+            Lang::Es => format!("[4w aviso] Nueva versión disponible ({current} -> {latest}). Ejecute '4w update' para actualizar."),
+            Lang::En => format!("[4w notice] A new version is available ({current} -> {latest}). Run '4w update' to update."),
+        };
+        eprintln!("\x1b[33m{text}\x1b[0m");
     }
     let now = config::now_ms();
     if now.saturating_sub(last) <= 24 * 60 * 60 * 1000 {

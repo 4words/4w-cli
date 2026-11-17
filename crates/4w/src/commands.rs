@@ -17,7 +17,10 @@ pub struct Ctx {
 pub enum Output {
     Json(Value),
     /// `get --raw`: bytes/text written verbatim; `meta` is still recorded in the vault.
-    Raw { meta: Value, payload: RawPayload },
+    Raw {
+        meta: Value,
+        payload: RawPayload,
+    },
 }
 
 const LLM_OPTS: [Opt; 4] = [string("llm-key"), string("llm-name"), string("key-file"), flag("from-history")];
@@ -275,7 +278,8 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
             if markdown.as_deref().is_some_and(|m| utf16_len(m) > 50_000) {
                 return Err(markdown_too_long());
             }
-            let llm_name = p.get("llm-name").map(str::to_string).or_else(|| std::env::var("FOURWORDS_LLM_NAME").ok().filter(|v| !v.is_empty()));
+            let llm_name =
+                p.get("llm-name").map(str::to_string).or_else(|| std::env::var("FOURWORDS_LLM_NAME").ok().filter(|v| !v.is_empty()));
             let args = compact(vec![
                 ("initial_markdown", markdown.map(Value::String)),
                 ("initial_message", opt_s(p.get("message"))),
@@ -315,7 +319,8 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
             exact(&p.positionals, 1, "room register-llm ROOM --llm-key KEY [--llm-name NAME]")?;
             let room = p.positionals[0].as_str();
             let auth = auth_pairs(&p, Some(room))?;
-            let has_key = auth.iter().any(|(k, v)| *k == "llm_key" && v.as_ref().and_then(Value::as_str).is_some_and(|s| !s.trim().is_empty()));
+            let has_key =
+                auth.iter().any(|(k, v)| *k == "llm_key" && v.as_ref().and_then(Value::as_str).is_some_and(|s| !s.trim().is_empty()));
             if !has_key {
                 return Err(Error::usage(trs(
                     "Provide --llm-key or set FOURWORDS_LLM_KEY.",
@@ -357,7 +362,15 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
         "wait" => {
             let p = args::parse(
                 room_args,
-                &with_llm(&[string("since"), string("since-doc"), flag("no-watch-doc"), string("timeout"), flag("mentions-only"), flag("all"), string("nick")]),
+                &with_llm(&[
+                    string("since"),
+                    string("since-doc"),
+                    flag("no-watch-doc"),
+                    string("timeout"),
+                    flag("mentions-only"),
+                    flag("all"),
+                    string("nick"),
+                ]),
             )?;
             exact(&p.positionals, 1, "room wait ROOM [--since N] [--since-doc TS] [--timeout S] [--all]")?;
             let room = p.positionals[0].as_str();
@@ -383,10 +396,7 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
             ready(notify, false).await?.call("chat_wait_events", compact(pairs)).await
         }
         "moderate" => {
-            let p = args::parse(
-                room_args,
-                &with_llm(&[string("admin-key"), string("admin-key-file"), string("nick"), string("ban-id")]),
-            )?;
+            let p = args::parse(room_args, &with_llm(&[string("admin-key"), string("admin-key-file"), string("nick"), string("ban-id")]))?;
             exact(&p.positionals, 2, "room moderate ROOM <ban|unban|list|verify> --admin-key KEY [--nick NICK] [--ban-id ID]")?;
             let (room, action) = (p.positionals[0].as_str(), p.positionals[1].as_str());
             if !["ban", "unban", "list", "verify"].contains(&action) {
@@ -464,7 +474,9 @@ async fn room_save(room_args: &[String], ctx: &Ctx, notify: Option<String>) -> R
     exact(&p.positionals, 2, "room save ROOM FILE --base N")?;
     let base_raw = p.get("base");
     let base = match base_raw {
-        Some(raw) if !raw.is_empty() && raw.bytes().all(|b| b.is_ascii_digit()) => raw.parse::<u64>().ok().filter(|n| *n <= 9_007_199_254_740_991),
+        Some(raw) if !raw.is_empty() && raw.bytes().all(|b| b.is_ascii_digit()) => {
+            raw.parse::<u64>().ok().filter(|n| *n <= 9_007_199_254_740_991)
+        }
         _ => None,
     };
     let Some(base) = base else {

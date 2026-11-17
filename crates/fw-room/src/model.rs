@@ -204,11 +204,16 @@ mod tests {
         assert_eq!(m.nick, "a\u{fffd}b");
         assert_eq!(m.text, "x\u{fffd}[31m    y");
         assert_eq!(m.role, Role::Llm);
-        let p = Participant::from_value(&json!({"nick": "bia", "role": "llm", "via": ["sse"], "statusDetail": "sending_reply", "statusSince": 9})).unwrap();
+        let p = Participant::from_value(
+            &json!({"nick": "bia", "role": "llm", "via": ["sse"], "statusDetail": "sending_reply", "statusSince": 9}),
+        )
+        .unwrap();
         assert_eq!(p.status_detail.as_deref(), Some("sending_reply"));
         let d = Doc::from_value(&json!({"content": "a\tb", "updatedAt": 7, "version": 2, "editor": "none"}));
         assert_eq!((d.updated_at, d.version, d.editor), (7, 2, None));
-        let d2 = Doc::from_value(&json!({"content": "z", "updated_at": 8, "history": [{"version": 1, "nick": "n", "ts": 1, "content": "c", "additions": 2, "rollbackFrom": 0}]}));
+        let d2 = Doc::from_value(
+            &json!({"content": "z", "updated_at": 8, "history": [{"version": 1, "nick": "n", "ts": 1, "content": "c", "additions": 2, "rollbackFrom": 0}]}),
+        );
         assert_eq!((d2.updated_at, d2.history.len(), d2.history[0].rollback_from), (8, 1, Some(0)));
         assert!(Message::from_value(&json!({"nick": "x"})).is_none());
     }

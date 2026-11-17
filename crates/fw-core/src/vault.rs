@@ -34,10 +34,7 @@ impl HistoryEntry {
     /// True when this entry refers to the given room (URL, 4-word link or combo).
     pub fn matches_room(&self, room: &str) -> bool {
         let Some(token) = room_token(room) else { return false };
-        [&self.url, &self.fourwords_url, &self.combo]
-            .into_iter()
-            .flatten()
-            .any(|candidate| candidate.to_lowercase().contains(&token))
+        [&self.url, &self.fourwords_url, &self.combo].into_iter().flatten().any(|candidate| candidate.to_lowercase().contains(&token))
     }
 
     /// Best human-facing link for this entry.

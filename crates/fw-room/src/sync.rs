@@ -12,10 +12,10 @@
 use crate::client::RoomClient;
 use crate::event::{Conn, Event, Transport};
 use crate::model::{Doc, Message, Participant, RoomInfo};
+use futures_util::StreamExt;
 use fw_core::http;
 use fw_core::sse::{SseEvent, SseParser};
 use fw_core::url::Url;
-use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -198,10 +198,10 @@ impl Run {
     }
 
     async fn refresh_doc(&mut self) {
-        if let Ok(doc) = self.client.get_doc().await {
-            if doc.version != self.doc_version || doc.updated_at != self.doc_ts {
-                self.doc(doc, false, 0, 0);
-            }
+        if let Ok(doc) = self.client.get_doc().await
+            && (doc.version != self.doc_version || doc.updated_at != self.doc_ts)
+        {
+            self.doc(doc, false, 0, 0);
         }
     }
 
@@ -314,10 +314,7 @@ impl Run {
         let Some(url) = self.stream_target() else {
             return SseEnd::Retry { reason: "no usable stream URL".into(), lived: Duration::ZERO };
         };
-        let mut request = http::client()
-            .get(url)
-            .header("Accept", "text/event-stream")
-            .header("Cache-Control", "no-cache");
+        let mut request = http::client().get(url).header("Accept", "text/event-stream").header("Cache-Control", "no-cache");
         if self.cursor > 0 {
             request = request.header("Last-Event-ID", self.cursor.to_string());
         }
@@ -399,18 +396,18 @@ impl Run {
                 }
             }
             Some("msg") => {
-                if let Some(message) = Message::from_value(&data) {
-                    if message.seq > self.cursor {
-                        self.cursor = message.seq;
-                        self.emit(Event::Messages { messages: vec![message], mentioned_me: false });
-                    }
+                if let Some(message) = Message::from_value(&data)
+                    && message.seq > self.cursor
+                {
+                    self.cursor = message.seq;
+                    self.emit(Event::Messages { messages: vec![message], mentioned_me: false });
                 }
             }
             Some("doc") => {
-                if let Some((doc, additions, deletions)) = Doc::from_live(&data) {
-                    if doc.updated_at != self.doc_ts || doc.version != self.doc_version {
-                        self.doc(doc, false, additions, deletions);
-                    }
+                if let Some((doc, additions, deletions)) = Doc::from_live(&data)
+                    && (doc.updated_at != self.doc_ts || doc.version != self.doc_version)
+                {
+                    self.doc(doc, false, additions, deletions);
                 }
             }
             _ => {}
@@ -455,12 +452,12 @@ impl Run {
                     if let Some(list) = Participant::list_from(v.get("participants")) {
                         self.presence(list);
                     }
-                    if v.get("doc_updated").and_then(Value::as_bool) == Some(true) {
-                        if let Some(markdown) = v.get("markdown").filter(|m| m.is_object()) {
-                            let doc = Doc::from_value(markdown);
-                            if doc.updated_at != self.doc_ts || doc.version != self.doc_version {
-                                self.doc(doc, false, 0, 0);
-                            }
+                    if v.get("doc_updated").and_then(Value::as_bool) == Some(true)
+                        && let Some(markdown) = v.get("markdown").filter(|m| m.is_object())
+                    {
+                        let doc = Doc::from_value(markdown);
+                        if doc.updated_at != self.doc_ts || doc.version != self.doc_version {
+                            self.doc(doc, false, 0, 0);
                         }
                     }
                 }

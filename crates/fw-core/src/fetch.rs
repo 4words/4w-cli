@@ -1,8 +1,8 @@
 //! Fetch a 4-word link (text page or file), decrypting `4WENC1` payloads. Used by `4w get` and by
 //! the room TUI to download shared files.
 
-use crate::url::{Url, normalize_target};
 use crate::lang::trs;
+use crate::url::{Url, normalize_target};
 use crate::{Error, ErrorKind, Result, crypto, http};
 use base64::Engine;
 use regex_lite::Regex;
@@ -80,12 +80,8 @@ pub async fn fetch_link(
             ),
         ));
     }
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream")
-        .to_string();
+    let content_type =
+        response.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("application/octet-stream").to_string();
 
     if content_type.contains("text/html") {
         let html = String::from_utf8_lossy(&http::read_limited(response, 64 * 1024 * 1024).await?).into_owned();
@@ -93,7 +89,11 @@ pub async fn fetch_link(
         let Some(found) = pattern.captures(&html).and_then(|c| c.get(1)) else {
             return Err(Error::new(
                 ErrorKind::Http(404),
-                trs("Content not found or link expired.", "Conteúdo não encontrado ou link expirado.", "Contenido no encontrado o enlace expirado."),
+                trs(
+                    "Content not found or link expired.",
+                    "Conteúdo não encontrado ou link expirado.",
+                    "Contenido no encontrado o enlace expirado.",
+                ),
             ));
         };
         let mut text = unescape_html(found.as_str());
@@ -148,11 +148,8 @@ pub async fn fetch_link(
         ("decrypted", decrypted.then_some(Value::Bool(true))),
         ("saved_to", opt_s(output)),
         ("content", if output.is_some() { None } else { text_content.as_deref().map(|t| Value::String(t.to_string())) }),
-        (
-            "content_base64",
-            (output.is_none() && !is_text).then(|| Value::String(base64::engine::general_purpose::STANDARD.encode(&bytes))),
-        ),
+        ("content_base64", (output.is_none() && !is_text).then(|| Value::String(base64::engine::general_purpose::STANDARD.encode(&bytes)))),
     ]);
-    let raw = want_raw.then(|| RawPayload { text: text_content, bytes });
+    let raw = want_raw.then_some(RawPayload { text: text_content, bytes });
     Ok((value, raw))
 }

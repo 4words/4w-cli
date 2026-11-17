@@ -18,7 +18,9 @@ pub enum CopyResult {
 
 fn candidates() -> Vec<(&'static str, Vec<&'static str>)> {
     let mut list: Vec<(&'static str, Vec<&'static str>)> = Vec::new();
-    if std::env::var_os("TERMUX_VERSION").is_some() || std::env::var_os("PREFIX").is_some_and(|p| p.to_string_lossy().contains("com.termux")) {
+    if std::env::var_os("TERMUX_VERSION").is_some()
+        || std::env::var_os("PREFIX").is_some_and(|p| p.to_string_lossy().contains("com.termux"))
+    {
         list.push(("termux-clipboard-set", vec![]));
     }
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
@@ -58,10 +60,10 @@ pub async fn copy(text: &str) -> CopyResult {
         }
         let spawned = Command::new(program).args(&args).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
         let Ok(mut child) = spawned else { continue };
-        if let Some(mut stdin) = child.stdin.take() {
-            if stdin.write_all(text.as_bytes()).await.is_err() {
-                continue;
-            }
+        if let Some(mut stdin) = child.stdin.take()
+            && stdin.write_all(text.as_bytes()).await.is_err()
+        {
+            continue;
         }
         match tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
             Ok(Ok(status)) if status.success() => return CopyResult::Tool(program),

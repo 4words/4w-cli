@@ -15,10 +15,13 @@ pub fn clip(s: &str, max: usize, ellipsis: &str) -> String {
     }
     let ell = width(ellipsis);
     if max <= ell {
-        return s.graphemes(true).scan(0usize, |w, g| {
-            *w += width(g);
-            (*w <= max).then(|| g)
-        }).collect();
+        return s
+            .graphemes(true)
+            .scan(0usize, |w, g| {
+                *w += width(g);
+                (*w <= max).then_some(g)
+            })
+            .collect();
     }
     let mut out = String::new();
     let mut w = 0;

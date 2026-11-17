@@ -28,9 +28,7 @@ pub fn encrypt(plain: &[u8]) -> Result<Encrypted> {
     let key = random::<32>();
     let iv = random::<12>();
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| Error::new(ErrorKind::Crypto, e.to_string()))?;
-    let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&iv), plain)
-        .map_err(|_| Error::new(ErrorKind::Crypto, "encryption failed"))?;
+    let ciphertext = cipher.encrypt(Nonce::from_slice(&iv), plain).map_err(|_| Error::new(ErrorKind::Crypto, "encryption failed"))?;
     Ok(Encrypted { iv, ciphertext, key_b64url: URL_SAFE_NO_PAD.encode(key) })
 }
 
@@ -97,7 +95,12 @@ pub fn decrypt_text(payload: &str, key_b64url: &str) -> Result<Vec<u8>> {
             trs("Invalid encrypted text format.", "Formato de texto criptografado inválido.", "Formato de texto cifrado inválido."),
         ));
     }
-    let bad = |_| Error::new(ErrorKind::Crypto, trs("Invalid encrypted text format.", "Formato de texto criptografado inválido.", "Formato de texto cifrado inválido."));
+    let bad = |_| {
+        Error::new(
+            ErrorKind::Crypto,
+            trs("Invalid encrypted text format.", "Formato de texto criptografado inválido.", "Formato de texto cifrado inválido."),
+        )
+    };
     let iv = b64url_decode(parts[0]).map_err(bad)?;
     let ct = b64url_decode(parts[1]).map_err(bad)?;
     decrypt(&iv, &ct, key_b64url)

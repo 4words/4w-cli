@@ -1,9 +1,9 @@
 //! Filesystem helpers for the room UI (path completion, uploads with progress, downloads).
 
+use futures_util::StreamExt;
 use fw_core::url::Url;
 use fw_core::{Error, Result};
 use fw_room::RoomClient;
-use futures_util::StreamExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,10 +22,10 @@ pub fn expand_home(path: &str) -> String {
         if let Ok(home) = std::env::var("HOME") {
             return format!("{}/{rest}", home.trim_end_matches('/'));
         }
-    } else if path == "~" {
-        if let Ok(home) = std::env::var("HOME") {
-            return home;
-        }
+    } else if path == "~"
+        && let Ok(home) = std::env::var("HOME")
+    {
+        return home;
     }
     path.to_string()
 }
@@ -100,10 +100,8 @@ pub async fn upload(client: &RoomClient, path: &str, name: &str, size: u64, burn
         }
         chunk
     });
-    let out = client
-        .mcp()
-        .upload_file_stream(name, reqwest::Body::wrap_stream(stream), Some(size), burn, "application/octet-stream")
-        .await?;
+    let out =
+        client.mcp().upload_file_stream(name, reqwest::Body::wrap_stream(stream), Some(size), burn, "application/octet-stream").await?;
     let url = out
         .get("fourwords_url")
         .or_else(|| out.get("url"))

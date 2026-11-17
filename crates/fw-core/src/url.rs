@@ -83,9 +83,10 @@ pub fn normalize_target(raw: &str, base: &Url) -> Result<(Url, Option<String>)> 
     }
     let (without_hash, fragment_key) = match trimmed.split_once('#') {
         Some((head, hash)) => {
-            let key = hash.split('&').find_map(|part| part.strip_prefix("key=")).filter(|k| {
-                !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-            });
+            let key = hash
+                .split('&')
+                .find_map(|part| part.strip_prefix("key="))
+                .filter(|k| !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'));
             (head, key.map(str::to_string))
         }
         None => (trimmed, None),

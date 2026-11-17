@@ -41,8 +41,7 @@ pub fn help_topic(args: &[String]) -> Option<String> {
     if matches!(options.first().map(String::as_str), Some("--help" | "-h")) {
         return Some(String::new());
     }
-    let subcommand = options.first().is_some_and(|c| c == "room" || c == "mcp")
-        && options.get(1).is_some_and(|s| !s.starts_with('-'));
+    let subcommand = options.first().is_some_and(|c| c == "room" || c == "mcp") && options.get(1).is_some_and(|s| !s.starts_with('-'));
     let offset = if subcommand { 2 } else { 1 };
     if options.len() == offset + 1 && matches!(options[offset].as_str(), "--help" | "-h") {
         return Some(options[..offset].join(" "));

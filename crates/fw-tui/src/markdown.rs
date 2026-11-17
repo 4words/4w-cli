@@ -165,7 +165,8 @@ impl<'t> Renderer<'t> {
             self.lines.push(Line::from(spans));
             if r == 0 {
                 let rule = if self.th.unicode { "─" } else { "-" };
-                self.lines.push(Line::from(Span::styled(rule.repeat(widths.iter().sum::<usize>() + cols.saturating_sub(1) * 3), self.th.dim)));
+                self.lines
+                    .push(Line::from(Span::styled(rule.repeat(widths.iter().sum::<usize>() + cols.saturating_sub(1) * 3), self.th.dim)));
             }
         }
     }
@@ -300,7 +301,10 @@ pub fn render(markdown: &str, pane_width: usize, th: &Theme) -> Vec<Line<'static
             },
             Event::Text(text) => {
                 if r.in_code {
-                    for code_line in text.split('\n').filter(|l| !(l.is_empty() && text.ends_with('\n') && std::ptr::eq(*l, text.rsplit('\n').next().unwrap_or("")))) {
+                    for code_line in text
+                        .split('\n')
+                        .filter(|l| !(l.is_empty() && text.ends_with('\n') && std::ptr::eq(*l, text.rsplit('\n').next().unwrap_or(""))))
+                    {
                         let clipped = clip(code_line, r.avail().saturating_sub(2), if th.unicode { "…" } else { "." });
                         let mut spans = r.prefix_spans(false);
                         spans.push(Span::styled(format!("  {clipped}"), th.code));
@@ -368,7 +372,8 @@ mod tests {
 
     #[test]
     fn renders_headings_lists_tasks_quotes_code_and_tables() {
-        let out = plain("# Title\n\n- one\n- [x] done\n  - nested\n\n> quote\n\n```\ncode line\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", 40);
+        let out =
+            plain("# Title\n\n- one\n- [x] done\n  - nested\n\n> quote\n\n```\ncode line\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", 40);
         let joined = out.join("\n");
         assert!(joined.contains("# Title"), "{joined}");
         assert!(joined.contains("• one") && joined.contains("[x] done"), "{joined}");

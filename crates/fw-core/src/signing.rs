@@ -16,9 +16,9 @@ fn fail(why: &str) -> Error {
     Error::new(
         ErrorKind::Crypto,
         trs(
-            format!("Signature verification failed ({why}). Update aborted."),
-            format!("A verificação da assinatura falhou ({why}). Atualização abortada."),
-            format!("La verificación de la firma falló ({why}). Actualización abortada."),
+            format!("Installer signature verification failed ({why}). Update aborted."),
+            format!("A verificação da assinatura do instalador falhou ({why}). Atualização abortada."),
+            format!("La verificación de la firma del instalador falló ({why}). Actualización abortada."),
         ),
     )
 }

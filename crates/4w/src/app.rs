@@ -48,6 +48,15 @@ fn write_stdout(bytes: &[u8]) -> Result<()> {
 }
 
 pub async fn run(raw_args: Vec<String>) -> Result<()> {
+    let notice = if raw_args.first().map(String::as_str) == Some("update") { None } else { crate::update::spawn_notice_check() };
+    let result = run_inner(raw_args).await;
+    if let Some(handle) = notice {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(1600), handle).await;
+    }
+    result
+}
+
+async fn run_inner(raw_args: Vec<String>) -> Result<()> {
     let langed = extract_global_lang(&raw_args)?;
     let (args, notify) = extract_global_notify(&langed)?;
     if let Some(key) = notify {

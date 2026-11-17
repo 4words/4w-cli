@@ -13,6 +13,7 @@ pub mod secrets;
 pub mod signing;
 pub mod sse;
 pub mod url;
+pub mod version;
 pub mod vault;
 
 pub use error::{Error, ErrorKind, Result};

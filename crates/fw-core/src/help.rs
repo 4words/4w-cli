@@ -63,7 +63,7 @@ mod tests {
         assert!(help(None, Lang::PtBr).unwrap().contains("Abre o painel interativo"));
         assert!(help(None, Lang::Es).unwrap().contains("Abre el panel interactivo"));
         assert!(help(Some("update"), Lang::En).unwrap().contains("4w update [--check] [--force]"));
-        assert!(help(Some("room watch"), Lang::En).unwrap().contains("Live room panel"));
+        assert!(help(Some("room watch"), Lang::En).unwrap().contains("Live room workspace"));
         assert!(help(Some("nope"), Lang::En).is_err());
         assert!(help(None, Lang::En).unwrap().starts_with(&format!("4w {} ", crate::VERSION)));
     }

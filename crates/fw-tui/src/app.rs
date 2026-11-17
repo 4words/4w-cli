@@ -24,6 +24,8 @@ pub const RATE_PER_MINUTE: usize = 30;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pane {
+    /// Nothing selected (first Esc); a second Esc asks to leave.
+    None,
     Input,
     Chat,
     Doc,
@@ -224,6 +226,8 @@ pub enum Tab {
 /// Rectangles of the last frame (for mouse hit-testing).
 #[derive(Debug, Default, Clone)]
 pub struct Rects {
+    /// Room link in the header (click copies it).
+    pub link: Rect,
     pub chat: Rect,
     pub doc: Rect,
     pub people: Rect,
@@ -1079,6 +1083,7 @@ impl App {
             _ => {}
         }
         match self.focus {
+            Pane::None => self.none_key(key),
             Pane::Input => self.input_key(key),
             Pane::Chat => self.chat_key(key),
             Pane::Doc => self.doc_key(key),
@@ -1090,7 +1095,38 @@ impl App {
         (self.rects.chat.height as usize).saturating_sub(3).max(3)
     }
 
+    /// First Esc: leave every pane (nothing selected). Second Esc: ask to leave the room.
+    fn unfocus(&mut self) {
+        self.focus = Pane::None;
+        self.chat_sel = None;
+        self.chat_scroll = 0;
+        self.unread = 0;
+        self.first_unread_seq = None;
+    }
+
+    fn none_key(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        match key.code {
+            KeyCode::Esc => self.run_cmd(Cmd::Quit),
+            KeyCode::Tab | KeyCode::Enter => self.focus_input(),
+            KeyCode::Char(_) if !ctrl && !alt => {
+                self.focus_input();
+                self.input_key(key);
+            }
+            _ => {}
+        }
+    }
+
+    fn focus_input(&mut self) {
+        self.focus = Pane::Input;
+        self.tab = Tab::Chat;
+    }
+
     fn cycle_focus(&mut self, forward: bool) {
+        if self.focus == Pane::None {
+            return self.focus_input();
+        }
         let order = [Pane::Input, Pane::Chat, Pane::Doc, Pane::People];
         let at = order.iter().position(|p| *p == self.focus).unwrap_or(0);
         let next = if forward { (at + 1) % order.len() } else { (at + order.len() - 1) % order.len() };
@@ -1098,10 +1134,7 @@ impl App {
             Pane::Chat => self.run_cmd(Cmd::FocusChat),
             Pane::Doc => self.run_cmd(Cmd::FocusDoc),
             Pane::People => self.run_cmd(Cmd::FocusPeople),
-            Pane::Input => {
-                self.focus = Pane::Input;
-                self.tab = Tab::Chat;
-            }
+            Pane::Input | Pane::None => self.focus_input(),
         }
     }
 
@@ -1135,13 +1168,7 @@ impl App {
             }
             KeyCode::Tab => self.cycle_focus(true),
             KeyCode::Enter => self.submit_composer(),
-            KeyCode::Esc => {
-                if self.chat_scroll > 0 {
-                    self.run_cmd(Cmd::JumpEnd);
-                } else {
-                    self.run_cmd(Cmd::FocusChat);
-                }
-            }
+            KeyCode::Esc => self.unfocus(),
             KeyCode::Up if popup => self.mention_sel = self.mention_sel.saturating_sub(1),
             KeyCode::Down if popup => self.mention_sel = (self.mention_sel + 1).min(names.len().saturating_sub(1)),
             KeyCode::Up if self.composer.lines().len() <= 1 => self.history_prev(),
@@ -1191,10 +1218,7 @@ impl App {
     fn chat_key(&mut self, key: KeyEvent) {
         let total = self.state.messages.len();
         match key.code {
-            KeyCode::Esc => {
-                self.focus = Pane::Input;
-                self.chat_sel = None;
-            }
+            KeyCode::Esc => self.unfocus(),
             KeyCode::Tab => self.cycle_focus(true),
             KeyCode::Up | KeyCode::Char('k') => self.move_selection(-1),
             KeyCode::Down | KeyCode::Char('j') => self.move_selection(1),
@@ -1255,7 +1279,7 @@ impl App {
         let total = self.doc_cache.as_ref().map(|c| c.lines.len()).unwrap_or(0);
         let page = (self.rects.doc.height as usize).saturating_sub(3).max(3);
         match key.code {
-            KeyCode::Esc => self.focus = Pane::Input,
+            KeyCode::Esc => self.unfocus(),
             KeyCode::Tab => self.cycle_focus(true),
             KeyCode::Up | KeyCode::Char('k') => self.doc_scroll = self.doc_scroll.saturating_sub(1),
             KeyCode::Down | KeyCode::Char('j') => self.doc_scroll = (self.doc_scroll + 1).min(total.saturating_sub(1)),
@@ -1276,7 +1300,7 @@ impl App {
     fn people_key(&mut self, key: KeyEvent) {
         let total = self.state.participants.len();
         match key.code {
-            KeyCode::Esc => self.focus = Pane::Input,
+            KeyCode::Esc => self.unfocus(),
             KeyCode::Tab => self.cycle_focus(true),
             KeyCode::Up | KeyCode::Char('k') => self.people_sel = self.people_sel.saturating_sub(1),
             KeyCode::Down | KeyCode::Char('j') => self.people_sel = (self.people_sel + 1).min(total.saturating_sub(1)),
@@ -1330,6 +1354,10 @@ impl App {
                 }
             }
             MouseEventKind::Down(MouseButton::Left) => {
+                if self.rects.link.contains(pos) {
+                    self.run_cmd(Cmd::CopyLink);
+                    return;
+                }
                 for (rect, tab) in self.rects.tabs.clone() {
                     if rect.contains(pos) {
                         match tab {

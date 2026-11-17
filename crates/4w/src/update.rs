@@ -92,7 +92,7 @@ async fn handle(check: bool, force: bool) -> Result<Value> {
             ),
         }));
     }
-    let output = run_installer(&latest).await?;
+    let output = run_installer(&latest, false).await?;
     Ok(json!({
         "ok": true,
         "previous_version": current,
@@ -134,7 +134,7 @@ async fn download(url: &str) -> Result<Vec<u8>> {
     http::read_limited(response, 4 * 1024 * 1024).await
 }
 
-async fn run_installer(latest: &str) -> Result<String> {
+async fn run_installer(latest: &str, uninstall: bool) -> Result<String> {
     let windows = cfg!(windows);
     let file = if windows { "install.ps1" } else { "install.sh" };
     let default_url = format!("https://raw.githubusercontent.com/4words/4w-cli/v{latest}/{file}");
@@ -178,10 +178,16 @@ async fn run_installer(latest: &str) -> Result<String> {
         let mut command = if windows {
             let mut c = tokio::process::Command::new("powershell.exe");
             c.args(["-ExecutionPolicy", "Bypass", "-File"]).arg(&script);
+            if uninstall {
+                c.arg("-Uninstall");
+            }
             c
         } else {
             let mut c = tokio::process::Command::new("sh");
             c.arg(&script);
+            if uninstall {
+                c.arg("--uninstall");
+            }
             c
         };
         command.output().await
@@ -244,5 +250,33 @@ pub fn spawn_notice_check() -> Option<tokio::task::JoinHandle<()>> {
             patch.insert("cached_latest_version".into(), json!(latest));
             let _ = config::update(patch);
         }
+    }))
+}
+
+/// `4w uninstall --yes`: runs the signed installer of the installed version in uninstall mode (executable,
+/// launcher link, PATH entries) and then erases the local vault and settings, wherever they live.
+pub async fn uninstall(rest: &[String]) -> Result<Value> {
+    let p = args::parse(rest, &[flag("yes")])?;
+    exact(&p.positionals, 0, "uninstall --yes")?;
+    if !p.flag("yes") {
+        return Err(Error::usage(trs(
+            "This removes 4w, its PATH entries, the local vault and settings. Run '4w uninstall --yes' to confirm.",
+            "Isto remove o 4w, as entradas de PATH, o cofre local e as configurações. Execute '4w uninstall --yes' para confirmar.",
+            "Esto elimina 4w, sus entradas de PATH, la bóveda local y los ajustes. Ejecute '4w uninstall --yes' para confirmar.",
+        )));
+    }
+    let output = run_installer(fw_core::VERSION, true).await?;
+    for path in [config::history_path(), config::config_path()].into_iter().flatten() {
+        let _ = std::fs::remove_file(path);
+    }
+    Ok(json!({
+        "ok": true,
+        "uninstalled": true,
+        "message": trs(
+            "4w was removed from this user profile, including the vault and settings.",
+            "O 4w foi removido deste perfil de usuário, incluindo cofre e configurações.",
+            "4w se eliminó de este perfil de usuario, incluidos la bóveda y los ajustes.",
+        ),
+        "output": output.trim(),
     }))
 }

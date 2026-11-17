@@ -83,11 +83,11 @@ fn draw_workspace(f: &mut Frame, app: &mut App, area: Rect) {
         Constraint::Length(1),
     ])
     .split(area);
+    app.rects = Rects::default();
     draw_header(f, app, rows[0]);
     if strip_h > 0 {
         draw_people_strip(f, app, rows[1]);
     }
-    app.rects = Rects::default();
     let body = rows[2];
     match mode {
         Layout3::Wide => {
@@ -118,7 +118,7 @@ fn draw_workspace(f: &mut Frame, app: &mut App, area: Rect) {
     draw_footer(f, app, rows[4]);
 }
 
-fn draw_header(f: &mut Frame, app: &App, area: Rect) {
+fn draw_header(f: &mut Frame, app: &mut App, area: Rect) {
     let th = &app.theme;
     let sym = th.sym();
     let s = app.s;
@@ -129,10 +129,12 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
         Conn::Reconnecting { in_secs, .. } => (sym.offline, th.warn, fmt(s.reconnecting, &[("n", &in_secs.to_string())])),
         Conn::Ended(reason) => (sym.cross, th.err, fmt(s.ended, &[("reason", &text::clip(reason, 40, sym.ellipsis))])),
     };
+    let link_text = clip(&app.link(), (area.width as usize).saturating_sub(48).max(12), sym.ellipsis);
+    let link_rect = Rect { x: area.x + 4, y: area.y, width: (width(&link_text) as u16).min(area.width.saturating_sub(4)), height: 1 };
     let online = app.state.participants.len();
     let mut spans = vec![
         Span::styled(" 4w ", th.brand),
-        Span::styled(clip(&app.link(), (area.width as usize).saturating_sub(48).max(12), sym.ellipsis), th.accent),
+        Span::styled(link_text, th.accent.add_modifier(Modifier::UNDERLINED)),
         Span::raw("  "),
         Span::styled(dot, dot_style),
         Span::raw(" "),
@@ -151,6 +153,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     }
     spans.push(Span::styled(format!("  [{}]", app.lang.code().to_uppercase()), th.dim));
     f.render_widget(Paragraph::new(Line::from(spans)), area);
+    app.rects.link = link_rect;
 }
 
 fn participant_badge(app: &App, p: &Participant) -> Vec<Span<'static>> {
@@ -522,6 +525,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         s.foot_tiny
     } else {
         match app.focus {
+            Pane::None => s.foot_none,
             Pane::Input => s.foot_input,
             Pane::Chat => s.foot_chat,
             Pane::Doc => s.foot_doc,

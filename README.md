@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1)))
 ```
 
-Update with `4w update` (`--check` only looks). Uninstall with `sh install.sh --uninstall`.
+Update with `4w update` (`--check` only looks). Remove everything (executable, PATH entries, local vault and settings) with `4w uninstall --yes`, or from the home panel under **Update / Remove**; `sh install.sh --uninstall` also works.
 The binaries are static (musl on Linux): they run on Alpine, NixOS and Termux unchanged.
 
 ## The room workspace
@@ -48,6 +48,8 @@ The binaries are static (musl on Linux): they run on Alpine, NixOS and Termux un
 | Moderate | `F6` when you own the room: list, ban and unban |
 | Search the chat | `/search text` or `Ctrl+P` → *Search chat* |
 | Do anything else | `Ctrl+P` command palette · `F1` help · `Ctrl+L` language · `Ctrl+T` theme · mouse wheel and clicks |
+| Copy the room link | click the link in the header (or `Ctrl+Y`) |
+| Leave | `Esc` unselects every pane; `Esc` again asks whether to leave the room |
 
 Slash commands in the message box: `/help /edit /history /file PATH /files /share /mod /nick /copy /search /lang /theme /reveal /quit`.
 

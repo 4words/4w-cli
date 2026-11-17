@@ -80,6 +80,13 @@ struct HubStrings {
     copied: &'static str,
     no_clipboard: &'static str,
     confirm_delete: &'static str,
+    confirm_vault: &'static str,
+    confirm_uninstall: &'static str,
+    vault_nav: &'static str,
+    maint_nav: &'static str,
+    maint_update: &'static str,
+    maint_remove: &'static str,
+    vault_erased: &'static str,
     mcp_tools: &'static str,
     mcp_empty: &'static str,
     owner: &'static str,
@@ -102,7 +109,7 @@ static EN: HubStrings = HubStrings {
     vault: ("Local vault (24 h)", "Credentials and links you created recently. Secrets stay hidden until you reveal them."),
     mcp: ("MCP explorer", "Browse the tools of the FourWords MCP server and call them with JSON."),
     doctor: ("Connection check", "Test the connection to FourWords and count the available tools."),
-    update: ("Update 4w", "Check for a new version and update in place (signature verified)."),
+    update: ("Update / Remove", "Update 4w in place (signature verified), or remove the CLI and all its data from this computer."),
     language: ("Language", "Switch the interface language (English, Português, Español)."),
     quit: ("Quit", "Close 4w."),
     nav: "↑↓ Navigate   Enter Open   L Language   ? Help   Esc Quit",
@@ -136,6 +143,13 @@ static EN: HubStrings = HubStrings {
     copied: "Link sent to the clipboard",
     no_clipboard: "No clipboard available",
     confirm_delete: "Destroy this content now? Enter confirms, Esc cancels.",
+    confirm_vault: "Erase the whole local vault (saved rooms, admin and agent keys, history)? This cannot be undone. Enter confirms, Esc cancels.",
+    confirm_uninstall: "Remove 4w from this computer: executable, PATH entries, local vault and settings? This cannot be undone. Enter confirms, Esc cancels.",
+    vault_nav: "↑↓ Scroll   V Credentials   D Destroy vault   Esc Back",
+    maint_nav: "↑↓ Choose   Enter Open   Esc Back",
+    maint_update: "Update 4w",
+    maint_remove: "Remove 4w and all data",
+    vault_erased: "Vault erased.",
     mcp_tools: "MCP tools ({n})",
     mcp_empty: "No tools returned.",
     owner: "owner",
@@ -161,7 +175,7 @@ static PT: HubStrings = HubStrings {
     vault: ("Cofre local (24 h)", "Credenciais e links criados recentemente. Segredos ficam ocultos até você revelar."),
     mcp: ("Explorador MCP", "Veja as ferramentas do servidor MCP do FourWords e chame-as com JSON."),
     doctor: ("Teste de conexão", "Teste a conexão com o FourWords e conte as ferramentas disponíveis."),
-    update: ("Atualizar o 4w", "Verifique uma nova versão e atualize no lugar (assinatura verificada)."),
+    update: ("Atualizar / Remover", "Atualize o 4w no lugar (assinatura verificada) ou remova o CLI e todos os dados deste computador."),
     language: ("Idioma", "Troque o idioma da interface (English, Português, Español)."),
     quit: ("Sair", "Fechar o 4w."),
     nav: "↑↓ Navegar   Enter Abrir   L Idioma   ? Ajuda   Esc Sair",
@@ -195,6 +209,13 @@ static PT: HubStrings = HubStrings {
     copied: "Link enviado à área de transferência",
     no_clipboard: "Sem área de transferência",
     confirm_delete: "Destruir este conteúdo agora? Enter confirma, Esc cancela.",
+    confirm_vault: "Apagar todo o cofre local (salas salvas, chaves de admin e de agentes, histórico)? Não há como desfazer. Enter confirma, Esc cancela.",
+    confirm_uninstall: "Remover o 4w deste computador: executável, entradas de PATH, cofre local e configurações? Não há como desfazer. Enter confirma, Esc cancela.",
+    vault_nav: "↑↓ Rolar   V Credenciais   D Destruir cofre   Esc Voltar",
+    maint_nav: "↑↓ Escolher   Enter Abrir   Esc Voltar",
+    maint_update: "Atualizar o 4w",
+    maint_remove: "Remover o 4w e todos os dados",
+    vault_erased: "Cofre apagado.",
     mcp_tools: "Ferramentas MCP ({n})",
     mcp_empty: "Nenhuma ferramenta retornada.",
     owner: "dono",
@@ -220,7 +241,7 @@ static ES: HubStrings = HubStrings {
     vault: ("Bóveda local (24 h)", "Credenciales y enlaces creados recientemente. Los secretos quedan ocultos hasta que los revele."),
     mcp: ("Explorador MCP", "Explore las herramientas del servidor MCP de FourWords y llámelas con JSON."),
     doctor: ("Prueba de conexión", "Pruebe la conexión con FourWords y cuente las herramientas disponibles."),
-    update: ("Actualizar 4w", "Busque una nueva versión y actualice en el lugar (firma verificada)."),
+    update: ("Actualizar / Eliminar", "Actualice 4w en su lugar (firma verificada) o elimine la CLI y todos sus datos de este equipo."),
     language: ("Idioma", "Cambie el idioma de la interfaz (English, Português, Español)."),
     quit: ("Salir", "Cerrar 4w."),
     nav: "↑↓ Navegar   Enter Abrir   L Idioma   ? Ayuda   Esc Salir",
@@ -254,6 +275,13 @@ static ES: HubStrings = HubStrings {
     copied: "Enlace enviado al portapapeles",
     no_clipboard: "Sin portapapeles",
     confirm_delete: "¿Destruir este contenido ahora? Enter confirma, Esc cancela.",
+    confirm_vault: "¿Borrar toda la bóveda local (salas guardadas, claves de admin y de agentes, historial)? No se puede deshacer. Enter confirma, Esc cancela.",
+    confirm_uninstall: "¿Eliminar 4w de este equipo: ejecutable, entradas de PATH, bóveda local y ajustes? No se puede deshacer. Enter confirma, Esc cancela.",
+    vault_nav: "↑↓ Desplazar   V Credenciales   D Destruir bóveda   Esc Volver",
+    maint_nav: "↑↓ Elegir   Enter Abrir   Esc Volver",
+    maint_update: "Actualizar 4w",
+    maint_remove: "Eliminar 4w y todos los datos",
+    vault_erased: "Bóveda borrada.",
     mcp_tools: "Herramientas MCP ({n})",
     mcp_empty: "No se devolvieron herramientas.",
     owner: "dueño",
@@ -333,7 +361,15 @@ enum Screen {
     Busy(String),
     Viewer(Viewer),
     Mcp { tools: Vec<Value>, selected: usize },
-    Confirm { url: String, back: Box<Viewer> },
+    Confirm { what: Danger, back: Box<Viewer> },
+    Maint { selected: usize },
+}
+
+#[derive(Debug, Clone)]
+enum Danger {
+    DeleteContent(String),
+    ClearVault,
+    Uninstall,
 }
 
 enum Msg {
@@ -354,6 +390,10 @@ struct Hub {
     dirty: bool,
     quit: Option<HubOutcome>,
     raw_out: Vec<String>,
+    /// Which action produced the open viewer (the vault viewer offers "destroy vault").
+    viewer_act: Option<Act>,
+    /// 4w was removed: leave the hub as soon as the result is dismissed.
+    uninstalled: bool,
 }
 
 fn field(id: &'static str, label: &str, hint: &str, kind: Kind, required: bool, initial_on: bool) -> Field {
@@ -361,6 +401,10 @@ fn field(id: &'static str, label: &str, hint: &str, kind: Kind, required: bool, 
     area.set_wrap_mode(WrapMode::WordOrGlyph);
     area.set_cursor_line_style(Style::default());
     Field { id, label: label.into(), hint: hint.into(), kind, required, line: Default::default(), area, on: initial_on }
+}
+
+fn empty_viewer(title: String) -> Viewer {
+    Viewer { title, value: Value::Null, text_cache: None, reveal: false, scroll: 0, error: false }
 }
 
 fn ago(ms: u64, s: &HubStrings) -> String {
@@ -487,6 +531,7 @@ impl Hub {
                     let _ = fw_core::config::save_lang(self.lang);
                     self.rebuild();
                 }
+                Act::Update => self.screen = Screen::Maint { selected: 0 },
                 Act::Vault => self.run(Act::Vault, vec!["history".into()], None),
                 Act::Doctor => self.run(Act::Doctor, vec!["doctor".into()], None),
                 Act::Mcp => {
@@ -561,6 +606,9 @@ impl Hub {
                 }
                 if !get("llm_name").trim().is_empty() {
                     a.extend(["--llm-name".into(), get("llm_name").trim().into()]);
+                } else {
+                    // The owner joins as a person; without this the server also adds a ghost agent.
+                    a.push("--no-join".into());
                 }
                 (a, (!md.trim().is_empty()).then_some(md))
             }
@@ -601,7 +649,7 @@ impl Hub {
                 let url = get("delete_url").trim().to_string();
                 let back =
                     Viewer { title: s.delete.0.into(), value: Value::Null, text_cache: None, reveal: false, scroll: 0, error: false };
-                self.screen = Screen::Confirm { url, back: Box::new(back) };
+                self.screen = Screen::Confirm { what: Danger::DeleteContent(url), back: Box::new(back) };
                 return;
             }
             Act::Update => {
@@ -628,6 +676,16 @@ impl Hub {
         match msg {
             Msg::Done { title, outcome, act } => match outcome {
                 Ok(value) => {
+                    if act == Act::Vault && value.get("cleared").and_then(Value::as_bool) == Some(true) {
+                        self.screen = Screen::Menu;
+                        self.rebuild();
+                        self.toast(self.s().vault_erased);
+                        return;
+                    }
+                    self.viewer_act = Some(act);
+                    if value.get("uninstalled").and_then(Value::as_bool) == Some(true) {
+                        self.uninstalled = true;
+                    }
                     if act == Act::NewRoom {
                         let room = value.get("fourwords_url").or_else(|| value.get("url")).and_then(Value::as_str).map(str::to_string);
                         if let Some(room) = room {
@@ -751,6 +809,10 @@ impl Hub {
             }
             Screen::Viewer(v) => match key.code {
                 KeyCode::Esc | KeyCode::Char('q') => {
+                    if self.uninstalled {
+                        self.quit = Some(HubOutcome::Quit);
+                        return;
+                    }
                     self.screen = Screen::Menu;
                 }
                 KeyCode::Up | KeyCode::Char('k') => v.scroll = v.scroll.saturating_sub(1),
@@ -781,7 +843,9 @@ impl Hub {
                             scroll: 0,
                             error: false,
                         };
-                        self.screen = Screen::Confirm { url, back: Box::new(back) };
+                        self.screen = Screen::Confirm { what: Danger::DeleteContent(url), back: Box::new(back) };
+                    } else if self.viewer_act == Some(Act::Vault) {
+                        self.screen = Screen::Confirm { what: Danger::ClearVault, back: Box::new(empty_viewer(String::new())) };
                     }
                 }
                 _ => {}
@@ -801,13 +865,34 @@ impl Hub {
                 }
                 _ => {}
             },
-            Screen::Confirm { url, back } => match key.code {
+            Screen::Confirm { what, back } => match key.code {
                 KeyCode::Enter => {
-                    let url = url.clone();
+                    let what = what.clone();
                     let title = back.title.clone();
-                    self.run_named(title, Act::Delete, vec!["delete".into(), url]);
+                    match what {
+                        Danger::DeleteContent(url) => self.run_named(title, Act::Delete, vec!["delete".into(), url]),
+                        Danger::ClearVault => {
+                            self.run_named(hs(self.lang).vault.0.into(), Act::Vault, vec!["history".into(), "--clear".into()])
+                        }
+                        Danger::Uninstall => {
+                            self.run_named(hs(self.lang).update.0.into(), Act::Update, vec!["uninstall".into(), "--yes".into()])
+                        }
+                    }
                 }
                 KeyCode::Esc => self.screen = Screen::Menu,
+                _ => {}
+            },
+            Screen::Maint { selected } => match key.code {
+                KeyCode::Esc => self.screen = Screen::Menu,
+                KeyCode::Up | KeyCode::Char('k') => *selected = selected.saturating_sub(1),
+                KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1).min(1),
+                KeyCode::Enter => {
+                    if *selected == 0 {
+                        self.open_form(Act::Update);
+                    } else {
+                        self.screen = Screen::Confirm { what: Danger::Uninstall, back: Box::new(empty_viewer(String::new())) };
+                    }
+                }
                 _ => {}
             },
         }
@@ -876,13 +961,41 @@ fn draw(f: &mut Frame, hub: &mut Hub) {
         }
         Screen::Viewer(_) => draw_viewer(f, hub, rows[1]),
         Screen::Mcp { .. } => draw_mcp(f, hub, rows[1]),
-        Screen::Confirm { url, .. } => {
-            let b = block(&th, s.delete.0, true);
+        Screen::Confirm { what, .. } => {
+            let (title, detail, question) = match what {
+                Danger::DeleteContent(url) => (s.delete.0, fw_core::sanitize::mask_secrets(url, hub.lang), s.confirm_delete),
+                Danger::ClearVault => (s.vault.0, String::new(), s.confirm_vault),
+                Danger::Uninstall => (s.update.0, String::new(), s.confirm_uninstall),
+            };
+            let b = block(&th, title, true);
             let inner = b.inner(rows[1]);
             f.render_widget(b, rows[1]);
-            let masked = fw_core::sanitize::mask_secrets(url, hub.lang);
-            let lines =
-                vec![Line::styled(format!(" {masked}"), th.dim), Line::default(), Line::styled(format!(" {}", s.confirm_delete), th.warn)];
+            let mut lines = Vec::new();
+            if !detail.is_empty() {
+                lines.push(Line::styled(format!(" {detail}"), th.dim));
+                lines.push(Line::default());
+            }
+            lines.push(Line::styled(format!(" {question}"), th.warn));
+            f.render_widget(Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false }), inner);
+        }
+        Screen::Maint { selected } => {
+            let b = block(&th, s.update.0, true);
+            let inner = b.inner(rows[1]);
+            f.render_widget(b, rows[1]);
+            let lines: Vec<Line> = [s.maint_update, s.maint_remove]
+                .iter()
+                .enumerate()
+                .map(|(i, label)| {
+                    let style = if i == *selected {
+                        th.selected
+                    } else if i == 1 {
+                        th.warn
+                    } else {
+                        th.text
+                    };
+                    Line::styled(format!(" {} {label} ", if i == *selected { "›" } else { " " }), style)
+                })
+                .collect();
             f.render_widget(Paragraph::new(lines), inner);
         }
     }
@@ -894,7 +1007,9 @@ fn draw(f: &mut Frame, hub: &mut Hub) {
     let hint = match &hub.screen {
         Screen::Menu => s.nav,
         Screen::Form(_) => s.form_nav,
+        Screen::Viewer(_) if hub.viewer_act == Some(Act::Vault) => s.vault_nav,
         Screen::Viewer(_) => s.result_nav,
+        Screen::Maint { .. } => s.maint_nav,
         Screen::Mcp { .. } => "↑↓ Navigate   Enter Call   Esc Back",
         _ => "Esc Back",
     };
@@ -1146,6 +1261,8 @@ pub async fn run_hub(exec: Exec) -> Result<HubOutcome> {
         dirty: true,
         quit: None,
         raw_out: Vec::new(),
+        viewer_act: None,
+        uninstalled: false,
     };
     hub.rebuild();
     let (key_tx, mut key_rx) = unbounded_channel();

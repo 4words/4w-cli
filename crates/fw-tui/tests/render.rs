@@ -15,6 +15,7 @@ fn app() -> App {
     let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
     let mut app =
         App::new(client, tx, AppConfig { owner_admin_key: Some("fwadm_00ff".into()), llm_key: None, mouse: true, persist_settings: false });
+    app.set_lang(Lang::En); // never depend on the language saved on the developer machine
     let human = |n: &str| Participant {
         nick: n.into(),
         role: Role::Human,

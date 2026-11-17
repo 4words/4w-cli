@@ -210,6 +210,10 @@ pub async fn create_and_open(rest: &[String]) -> Result<Option<crate::commands::
     }
     let mut args = vec!["room".to_string(), "create".to_string()];
     args.extend(rest.iter().filter(|a| *a != "--no-open").cloned());
+    if !rest.iter().any(|a| a == "--llm-name" || a.starts_with("--llm-name=")) {
+        // The owner joins as a person in the workspace; avoid the server adding a ghost agent for the creator.
+        args.push("--no-join".to_string());
+    }
     let output = crate::commands::execute(&args, &crate::commands::Ctx { input: None }).await?;
     let crate::commands::Output::Json(created) = output else { return Ok(None) };
     if rest.iter().any(|a| a == "--no-open") {

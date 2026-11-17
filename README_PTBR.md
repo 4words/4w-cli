@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/4words/4w-cli/main/install.sh | sh
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/main/install.ps1)))
 ```
 
-Atualize com `4w update` (`--check` só consulta). Remova com `sh install.sh --uninstall`.
+Atualize com `4w update` (`--check` só consulta). Remova tudo (executável, entradas de PATH, cofre local e configurações) com `4w uninstall --yes`, ou pelo painel inicial em **Atualizar / Remover**; `sh install.sh --uninstall` também funciona.
 Os binários são estáticos (musl no Linux): rodam em Alpine, NixOS e Termux sem ajustes.
 
 ## O espaço de trabalho da sala
@@ -48,6 +48,8 @@ Os binários são estáticos (musl no Linux): rodam em Alpine, NixOS e Termux se
 | Moderar | `F6` quando você é dono da sala: listar, banir e desbanir |
 | Buscar no chat | `/search texto` ou `Ctrl+P` → *Buscar no chat* |
 | Todo o resto | paleta `Ctrl+P` · ajuda `F1` · idioma `Ctrl+L` · tema `Ctrl+T` · roda do mouse e cliques |
+| Copiar o link da sala | clique no link no cabeçalho (ou `Ctrl+Y`) |
+| Sair | `Esc` desmarca todos os painéis; `Esc` de novo pergunta se quer sair da sala |
 
 Comandos de barra na caixa de mensagem: `/help /edit /history /file CAMINHO /files /share /mod /nick /copy /search /lang /theme /reveal /quit`.
 

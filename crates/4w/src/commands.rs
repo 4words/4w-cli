@@ -51,6 +51,7 @@ pub async fn execute(raw_args: &[String], ctx: &Ctx) -> Result<Output> {
     let output = match command.as_str() {
         "doctor" => doctor(rest, notify).await?,
         "update" => crate::update::command(rest).await?,
+        "uninstall" => crate::update::uninstall(rest).await?,
         "lang" => lang_command(rest)?,
         "history" => history_command(rest)?,
         "get" => return get_command(rest, notify).await,
@@ -269,8 +270,8 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
     };
     match action.as_str() {
         "create" => {
-            let p = args::parse(room_args, &[string("doc"), string("message"), string("llm-name")])?;
-            exact(&p.positionals, 0, "room create [--doc FILE] [--message TEXT] [--llm-name NAME]")?;
+            let p = args::parse(room_args, &[string("doc"), string("message"), string("llm-name"), flag("no-join")])?;
+            exact(&p.positionals, 0, "room create [--doc FILE] [--message TEXT] [--llm-name NAME] [--no-join]")?;
             let markdown = match p.get("doc") {
                 Some(path) => Some(read_text(path, 200_000, ctx.input.as_deref()).await?),
                 None => None,
@@ -284,6 +285,7 @@ async fn room_command(rest: &[String], ctx: &Ctx, notify: Option<String>) -> Res
                 ("initial_markdown", markdown.map(Value::String)),
                 ("initial_message", opt_s(p.get("message"))),
                 ("llm_name", llm_name.map(Value::String)),
+                ("join_on_create", p.flag("no-join").then_some(Value::Bool(false))),
             ]);
             ready(notify, false).await?.call("chat_create", args).await
         }

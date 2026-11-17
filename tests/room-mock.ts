@@ -64,6 +64,8 @@ export function startRoomMock(opts: { ownerBans?: boolean } = {}) {
       calls.push({ name, args });
       const ok = (structuredContent: unknown) => reply({ structuredContent });
       switch (name) {
+        case "chat_create":
+          return ok({ ok: true, url: "https://4words.example/chat/h", fourwords_url: "https://4words.example/lua-gato-sol-rio-123456789", combo: "lua-gato-sol-rio-123456789", admin_key: "fwadm_testadminkey", llm_key: "fwllm_testllmkey", stream_url: `${origin()}/chat/h/events` });
         case "chat_join":
           return ok({ nick: "eu-1", fourwords_url: "https://4words.example/lua-gato-sol-rio-123456789", stream_url: `${origin()}/chat/h/events`, participants: people().slice(0, 1), markdown: { content: docContent, updatedAt: docUpdatedAt, version: docVersion, history } });
         case "chat_messages":

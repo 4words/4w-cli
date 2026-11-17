@@ -55,6 +55,11 @@ const withMock = (o?: Parameters<typeof startRoomMock>[0]) => {
   cleanups.push(() => mock.stop());
   return mock;
 };
+async function run4w(args: string[], env: Record<string, string>) {
+  const p = Bun.spawn([rustBin!, ...args], { env: { ...process.env as Record<string, string>, ...env }, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
+  return { code: await p.exited, stdout, stderr };
+}
 const until = async (pred: () => boolean, ms = 6000) => {
   const deadline = Date.now() + ms;
   while (!pred()) { if (Date.now() > deadline) throw new Error("condition not met in time"); await Bun.sleep(25); }
@@ -286,9 +291,9 @@ rtest("quit asks for confirmation, exits 0 and restores the terminal", async () 
   expect(raw).toContain("\x1b[?1006l"); // mouse reporting disabled
 });
 
-function openHub(mock: ReturnType<typeof startRoomMock>, env: Record<string, string> = {}, cols = 100, rows = 30): Session {
+function openHub(mock: ReturnType<typeof startRoomMock>, env: Record<string, string> = {}, cols = 100, rows = 30, dirOverride?: string): Session {
   const screen = new Screen(rows, cols);
-  const dir = join(tmpdir(), `4w-hub-${process.pid}-${Math.random().toString(36).slice(2)}`);
+  const dir = dirOverride ?? join(tmpdir(), `4w-hub-${process.pid}-${Math.random().toString(36).slice(2)}`);
   const proc = Bun.spawn([rustBin!], {
     env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "history.json"), FOURWORDS_CONFIG_FILE: join(dir, "config.json"), FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", TERM: "xterm-256color", ...env },
     terminal: { cols, rows, data(_t: unknown, d: Uint8Array) { screen.feed(Buffer.from(d).toString()); } },
@@ -336,4 +341,126 @@ rtest("hub: language switch applies immediately and is remembered", async () => 
   await s.waitFor("Nova sala");
   s.type("l");
   await s.waitFor("Nueva sala");
+});
+
+rtest("workspace: first Esc unselects every pane, second Esc asks before leaving, typing returns to the composer", async () => {
+  const mock = withMock();
+  const s = open(mock);
+  await s.waitFor("People (3)");
+  s.type(KEY.esc);
+  await s.waitFor("Esc Leave room"); // nothing selected
+  s.type(KEY.esc);
+  await s.waitFor("Leave the room?");
+  s.type(KEY.esc); // cancel
+  await s.gone("Leave the room?");
+  s.type("o");     // typing focuses the composer again
+  await s.waitFor("Enter Send");
+  s.type(KEY.esc);
+  await s.waitFor("Esc Leave room");
+  s.type(KEY.esc);
+  await s.waitFor("Leave the room?");
+  s.type(KEY.enter);
+  expect(await s.exited).toBe(0);
+});
+
+rtest("workspace: clicking the room link in the header copies it to the clipboard", async () => {
+  const mock = withMock();
+  const dir = await mkdtemp(join(tmpdir(), "4w-clip-"));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const sink = join(dir, "copied.txt");
+  await writeFile(join(dir, "wl-copy"), `#!/bin/sh\ncat > "${sink}"\n`, { mode: 0o755 });
+  const s = open(mock, { env: { PATH: `${dir}:${process.env.PATH}`, WAYLAND_DISPLAY: "wayland-test" } });
+  await s.waitFor("People (3)");
+  s.type("\x1b[<0;10;1M\x1b[<0;10;1m"); // left click on the link at the top line
+  await until(() => existsSync(sink) && Bun.file(sink).size > 0);
+  expect(await Bun.file(sink).text()).toContain("lua-gato-sol-rio-123456789");
+  await s.waitFor("Copied");
+});
+
+rtest("room create: the owner joins as a person only (no ghost agent from the server)", async () => {
+  const mock = withMock();
+  const dir = await mkdtemp(join(tmpdir(), "4w-create-"));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const screen = new Screen(34, 130);
+  const proc = Bun.spawn([rustBin!, "room", "create"], {
+    env: { ...process.env as Record<string, string>, FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "h.json"), FOURWORDS_CONFIG_FILE: join(dir, "c.json"), FOURWORDS_NO_UPDATE_CHECK: "1", FOURWORDS_LANG: "en", TERM: "xterm-256color" },
+    terminal: { cols: 130, rows: 34, data(_t: unknown, d: Uint8Array) { screen.feed(Buffer.from(d).toString()); } },
+  } as any);
+  cleanups.push(() => { try { proc.kill(); } catch {} });
+  await until(() => screen.contains("People"), 8000);
+  const create = mock.calls.find((c) => c.name === "chat_create");
+  expect(create?.args.join_on_create).toBe(false);
+  // scripts keep the old behavior: the creator is joined unless --no-join is given
+  const json = await run4w(["room", "create", "--json"], { FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "h2.json"), FOURWORDS_CONFIG_FILE: join(dir, "c2.json"), FOURWORDS_NO_UPDATE_CHECK: "1" });
+  expect(json.code).toBe(0);
+  expect(mock.calls.filter((c) => c.name === "chat_create").at(-1)?.args.join_on_create).toBeUndefined();
+});
+
+rtest("hub: vault shows a destroy confirmation and erases the whole history", async () => {
+  const mock = withMock();
+  const dir = await mkdtemp(join(tmpdir(), "4w-vault-"));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const env = { FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "history.json"), FOURWORDS_CONFIG_FILE: join(dir, "config.json"), FOURWORDS_NO_UPDATE_CHECK: "1" };
+  const seeded = await run4w(["room", "create", "--json"], env);
+  expect(seeded.code).toBe(0);
+  expect(existsSync(join(dir, "history.json"))).toBe(true);
+  const s = openHub(mock, env, 100, 30, dir);
+  await s.waitFor("Local vault");
+  for (let i = 0; i < 20 && !s.screen.text().includes("› Local vault"); i++) { s.type(KEY.down); await Bun.sleep(30); }
+  s.type(KEY.enter);
+  await s.waitFor("D Destroy vault");
+  s.type("d");
+  await s.waitFor("Erase the whole local vault");
+  s.type(KEY.esc); // cancel keeps everything
+  await s.waitFor("Details");
+  expect(existsSync(join(dir, "history.json"))).toBe(true);
+  s.type(KEY.enter);
+  await s.waitFor("D Destroy vault");
+  s.type("d");
+  await s.waitFor("Erase the whole local vault");
+  s.type(KEY.enter);
+  await s.waitFor("Vault erased.");
+  expect(existsSync(join(dir, "history.json"))).toBe(false);
+});
+
+rtest("hub: Update / Remove asks for confirmation, then runs the installer in uninstall mode and wipes vault and settings", async () => {
+  const mock = withMock();
+  const dir = await mkdtemp(join(tmpdir(), "4w-uninst-"));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const log = join(dir, "installer-args.txt");
+  const stub = join(dir, "install-stub.sh");
+  await writeFile(stub, `#!/bin/sh\nprintf '%s\\n' "$*" > "${log}"\n`, { mode: 0o755 });
+  const env = { FOURWORDS_MCP_URL: mock.mcpUrl, FOURWORDS_HISTORY_FILE: join(dir, "history.json"), FOURWORDS_CONFIG_FILE: join(dir, "config.json"), FOURWORDS_INSTALLER_SCRIPT: stub, FOURWORDS_NO_UPDATE_CHECK: "1" };
+  expect((await run4w(["room", "create", "--json"], env)).code).toBe(0);
+  await writeFile(join(dir, "config.json"), `{"lang":"en"}`);
+  // without --yes nothing happens
+  const refused = await run4w(["uninstall"], env);
+  expect(refused.code).toBe(1);
+  expect(existsSync(join(dir, "history.json"))).toBe(true);
+
+  const s = openHub(mock, env, 100, 30, dir);
+  await s.waitFor("Update / Remove");
+  for (let i = 0; i < 20 && !s.screen.text().includes("› Update / Remove"); i++) { s.type(KEY.down); await Bun.sleep(30); }
+  s.type(KEY.enter);
+  await s.waitFor("Update 4w");
+  await s.waitFor("Remove 4w and all data");
+  s.type(KEY.down);
+  s.type(KEY.enter);
+  await s.waitFor("Remove 4w from this computer");
+  s.type(KEY.esc); // cancel
+  await s.waitFor("Details");
+  expect(existsSync(log)).toBe(false);
+  expect(existsSync(join(dir, "history.json"))).toBe(true);
+
+  s.type(KEY.enter);
+  s.type(KEY.down);
+  s.type(KEY.enter);
+  await s.waitFor("Remove 4w from this computer");
+  s.type(KEY.enter);
+  await s.waitFor("uninstalled");
+  expect((await Bun.file(log).text()).trim()).toBe("--uninstall");
+  expect(existsSync(join(dir, "history.json"))).toBe(false);
+  expect(existsSync(join(dir, "config.json"))).toBe(false);
+  s.type(KEY.esc); // after removal the hub closes by itself
+  expect(await s.exited).toBe(0);
 });

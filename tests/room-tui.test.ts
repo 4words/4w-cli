@@ -319,7 +319,7 @@ rtest("hub: lists rooms, sharing and tools; publishes text through a form and sh
   s.type(KEY.ctrl("s"));
   await s.waitFor("RESPONSE");
   s.type(KEY.esc);
-  await s.waitFor("Publish text");
+  await s.waitFor("Details"); // only the menu has a details pane
   s.type("q");
   expect(await s.exited).toBe(0);
   expect(s.screen.raw).toContain("\x1b[?1049l");

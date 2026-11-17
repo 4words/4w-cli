@@ -7,9 +7,9 @@ param(
 & {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
-    $version = '1.0.0'
-    $shaWindowsX64 = '12b83a6a0509af428ab9dde3d46ca3861958b54d197b1a57e3887479c503ada2'
-    $release = 'https://github.com/4words/4w-cli/releases/download/v1.0.0'
+    $version = '1.0.1'
+    $shaWindowsX64 = 'c4ba944a63f7f1bb06f7097ad7326a9f8e85fb5ff712e80bccdad3162331cea7'
+    $release = 'https://github.com/4words/4w-cli/releases/download/v1.0.1'
     if ($env:OS -ne 'Windows_NT') { throw 'Use this installer on Windows.' }
     if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is not available.' }
     $base = Join-Path $env:LOCALAPPDATA '4Words\CLI'
@@ -160,7 +160,7 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr window, uint
         if (-not @($env:Path -split ';' | Where-Object { PathMatches $_ }).Count) { $env:Path = "$bin;$env:Path" }
         Write-Host "4w $version installed at $exe."
         Write-Host 'First use: 4w (opens the panel) | 4w --help | switch language: 4w lang ptbr.'
-        Write-Host 'Uninstall: & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/v1.0.0/install.ps1))) -Uninstall'
+        Write-Host 'Uninstall: & ([scriptblock]::Create((irm https://raw.githubusercontent.com/4words/4w-cli/v1.0.1/install.ps1))) -Uninstall'
     } catch {
         throw "4Words: $($_.Exception.Message)"
     } finally {

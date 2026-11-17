@@ -4,13 +4,13 @@
 fourwords_install() (
     set -eu
     umask 077
-    version='1.0.0'
-    release='https://github.com/4words/4w-cli/releases/download/v1.0.0'
-    raw='https://raw.githubusercontent.com/4words/4w-cli/v1.0.0'
-    sha_linux_x64='ac22a1c2454e6ddef67d7e7cb1178f5703d2f35879eb0b497027fa2e6cd87bf3'
-    sha_linux_arm64='d615d8257c6cb82dee0ef56b1bb4ad028d57637bc2763f03984d46bd5ff1cac0'
-    sha_darwin_x64='4e7733e1d66094b98424aa16e06b1c20f750f8f67467e60faf4c9f4a6f703c69'
-    sha_darwin_arm64='9ff2ace3cdf453304a6f514ea66e82617c553895dd3da12361d4cbc0029f924d'
+    version='1.0.1'
+    release='https://github.com/4words/4w-cli/releases/download/v1.0.1'
+    raw='https://raw.githubusercontent.com/4words/4w-cli/v1.0.1'
+    sha_linux_x64='d76ebdac9350471e0272472a9c1374e45ef982b29b646eae2006b4c8fcdbb3a5'
+    sha_linux_arm64='4f386f3cb06cf939d6dc38dc1c2b577e0795dc226fb540aea03b12a7462c1cf3'
+    sha_darwin_x64='3305ba352823027e37ffbbe4ff5bec0014efbfe46ec7467422abeccf4adf9e34'
+    sha_darwin_arm64='99c26d623679b4743a4f8f03039e5108a96265864930e8b8996d859ef97a29fd'
     action=install
     local_source=''
     while [ "$#" -gt 0 ]; do

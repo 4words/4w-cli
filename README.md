@@ -93,6 +93,7 @@ Every command prints JSON on stdout and errors on stderr (exit code 1). Without 
 | `FOURWORDS_NO_HISTORY=1` | do not record the local vault |
 | `FOURWORDS_NO_UPDATE_CHECK=1` | disable the once-a-day version check (queries `raw.githubusercontent.com` on a terminal) |
 | `FOURWORDS_OSC52=1` | allow copying through the terminal (OSC 52) when no clipboard tool exists |
+| `FOURWORDS_NO_DNS_FALLBACK=1` | never ask public DNS servers (1.1.1.1, 8.8.8.8, 9.9.9.9) when the system resolver fails, as on Android/Termux |
 
 ## Security
 

@@ -4,7 +4,7 @@ members = ["crates/fw-core", "crates/fw-room", "crates/fw-tui", "crates/4w"]
 
 [workspace.package]
 # Single-sourced with src/help.ts VERSION until the TypeScript CLI is retired.
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/4words/4w-cli"

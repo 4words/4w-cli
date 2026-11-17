@@ -93,6 +93,7 @@ Todo comando imprime JSON no stdout e erros no stderr (código de saída 1). Sem
 | `FOURWORDS_NO_HISTORY=1` | não grava o cofre local |
 | `FOURWORDS_NO_UPDATE_CHECK=1` | desliga a checagem diária de versão (consulta `raw.githubusercontent.com` em terminal) |
 | `FOURWORDS_OSC52=1` | permite copiar pelo terminal (OSC 52) quando não há ferramenta de área de transferência |
+| `FOURWORDS_NO_DNS_FALLBACK=1` | nunca consulta DNS públicos (1.1.1.1, 8.8.8.8, 9.9.9.9) quando o resolvedor do sistema falha, como no Android/Termux |
 
 ## Segurança
 

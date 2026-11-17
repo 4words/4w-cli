@@ -1,6 +1,7 @@
 //! FourWords core: everything shared by the CLI and the TUI.
 pub mod config;
 pub mod crypto;
+pub mod dns;
 pub mod error;
 pub mod fetch;
 pub mod fsutil;
